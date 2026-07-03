@@ -32,8 +32,31 @@
   --delta-bad: #d03b3b;
 }
 
+/* Donkere tokens: via de toggle (data-theme) of — zonder expliciete keuze —
+   via de systeemvoorkeur. Twee selectors, één keer per blok gedupliceerd. */
+:root[data-theme="dark"] {
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --surface-raised: #222221;
+
+  --ink: #ffffff;
+  --ink-secondary: #c3c2b7;
+  --ink-muted: #898781;
+
+  --grid: #2c2c2a;
+  --baseline: #383835;
+  --border: rgba(255, 255, 255, 0.1);
+
+  --accent: #3987e5;
+  --accent-soft: #256abf;
+  --accent-track: #10314f;
+
+  --delta-good: #0ca30c;
+  --delta-bad: #e66767;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --page: #0d0d0d;
     --surface: #1a1a19;
     --surface-raised: #222221;

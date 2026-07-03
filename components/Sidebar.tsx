@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ThemeToggle } from "./ThemeToggle";
 
 type NavItem = {
   href: string;
@@ -126,7 +127,8 @@ export function Sidebar() {
         <nav className="flex flex-col gap-1" aria-label="Hoofdnavigatie">
           {items}
         </nav>
-        <div className="mt-auto px-3">
+        <div className="mt-auto flex flex-col gap-3 px-3">
+          <ThemeToggle />
           <span className="flex w-fit items-center gap-1.5 rounded-full border border-edge px-3 py-1 text-xs text-ink-secondary">
             <span className="h-1.5 w-1.5 rounded-full bg-good" />
             Live · demo-data
@@ -136,7 +138,10 @@ export function Sidebar() {
 
       {/* Mobiel: logo + horizontale navigatie bovenaan */}
       <div className="flex flex-col gap-3 border-b border-edge bg-surface px-3 pt-4 pb-2 lg:hidden">
-        <Logo />
+        <div className="flex items-center justify-between gap-3">
+          <Logo />
+          <ThemeToggle />
+        </div>
         <nav className="flex gap-1 overflow-x-auto pb-1" aria-label="Hoofdnavigatie">
           {items}
         </nav>
