@@ -61,7 +61,6 @@ export function TicketsChart({ points }: { points: DayPoint[] }) {
           {points.map((p, i) => {
             const barH = Math.max(1, PAD.top + innerH - y(p.value));
             const r = Math.min(4, barW / 2, barH);
-            const top = y(p.value);
             return (
               <g key={p.date.getTime()}>
                 <path
