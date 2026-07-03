@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { defaultRange } from "@/lib/settings";
 import {
   RANGES,
   type RangeKey,
@@ -19,6 +20,7 @@ import { SeverityIcon } from "@/components/severity";
 
 export default function KlantenservicePage() {
   const [range, setRange] = useState<RangeKey>("30d");
+  useEffect(() => setRange(defaultRange()), []);
   const days = RANGES.find((r) => r.key === range)!.days;
 
   const tickets = lastDays(tickets90, days);

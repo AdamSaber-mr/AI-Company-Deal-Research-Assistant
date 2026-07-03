@@ -209,7 +209,6 @@ export const alerts: Alert[] = [
 ];
 
 export const briefing = {
-  greeting: "Goedemorgen, Adam",
   headline: "Dit moet je vandaag weten",
   summary:
     "Twee zaken vragen vandaag om actie: de voorraad espressobonen raakt over 3 dagen op en het aantal klachten ligt 40% boven normaal — vooral over vertraagde bezorging. De omzet ligt op koers en de keuken is volledig bezet.",

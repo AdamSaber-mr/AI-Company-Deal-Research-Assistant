@@ -1,6 +1,13 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { briefing, longDate, ANCHOR_DATE } from "@/lib/data";
+import { DEFAULT_SETTINGS, loadSettings } from "@/lib/settings";
 
 export function Briefing() {
+  const [ownerName, setOwnerName] = useState(DEFAULT_SETTINGS.ownerName);
+  useEffect(() => setOwnerName(loadSettings().ownerName), []);
+
   return (
     <section className="rounded-2xl border border-edge bg-surface p-6 sm:p-8">
       <div className="flex items-center gap-2 text-xs font-medium text-ink-muted uppercase tracking-wider">
@@ -14,7 +21,7 @@ export function Briefing() {
       </div>
 
       <h1 className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight">
-        {briefing.greeting} — {briefing.headline.toLowerCase()}
+        Goedemorgen, {ownerName} — {briefing.headline.toLowerCase()}
       </h1>
 
       <p className="mt-3 max-w-3xl text-[0.95rem] leading-relaxed text-ink-secondary">
