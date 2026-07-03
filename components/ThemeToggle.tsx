@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 type Theme = "light" | "dark";
 
@@ -12,18 +12,23 @@ function currentTheme(): Theme {
     : "light";
 }
 
-export function ThemeToggle() {
-  // Pas na mount bekend (localStorage/systeemvoorkeur), dus start neutraal.
-  const [theme, setTheme] = useState<Theme | null>(null);
+// Op de server (en tijdens hydration) is het thema onbekend: geen actieve knop.
+const noopSubscribe = () => () => {};
+const serverTheme = () => null;
 
-  useEffect(() => {
-    setTheme(currentTheme());
-  }, []);
+export function ThemeToggle() {
+  const initial = useSyncExternalStore<Theme | null>(
+    noopSubscribe,
+    currentTheme,
+    serverTheme
+  );
+  const [override, setOverride] = useState<Theme | null>(null);
+  const theme = override ?? initial;
 
   const apply = (t: Theme) => {
-    document.documentElement.dataset.theme = t;
+    document.documentElement.setAttribute("data-theme", t);
     localStorage.setItem("theme", t);
-    setTheme(t);
+    setOverride(t);
   };
 
   const options: { key: Theme; label: string; icon: React.ReactNode }[] = [

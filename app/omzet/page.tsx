@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { defaultRange } from "@/lib/settings";
+import { useRangeSetting } from "@/lib/useSettings";
 import {
   RANGES,
-  type RangeKey,
   revenue90,
   lastDays,
   sum,
@@ -17,8 +15,7 @@ import { StatTile } from "@/components/StatTile";
 import { RevenueChart } from "@/components/RevenueChart";
 
 export default function OmzetPage() {
-  const [range, setRange] = useState<RangeKey>("30d");
-  useEffect(() => setRange(defaultRange()), []);
+  const [range, setRange] = useRangeSetting();
   const days = RANGES.find((r) => r.key === range)!.days;
 
   const revenue = lastDays(revenue90, days);

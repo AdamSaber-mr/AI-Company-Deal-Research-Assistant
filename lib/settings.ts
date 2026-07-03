@@ -31,22 +31,27 @@ export const DEFAULT_SETTINGS: Settings = {
 
 const KEY = "bcc-settings";
 
-export function loadSettings(): Settings {
-  if (typeof window === "undefined") return DEFAULT_SETTINGS;
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return DEFAULT_SETTINGS;
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-  } catch {
-    return DEFAULT_SETTINGS;
+// Cache zodat settingsSnapshot() dezelfde object-referentie teruggeeft zolang
+// localStorage niet wijzigt — vereist voor useSyncExternalStore.
+let cachedRaw: string | null | undefined;
+let cachedSettings: Settings = DEFAULT_SETTINGS;
+
+/** Stabiele snapshot van de opgeslagen instellingen (client-side). */
+export function settingsSnapshot(): Settings {
+  const raw = localStorage.getItem(KEY);
+  if (raw !== cachedRaw) {
+    cachedRaw = raw;
+    try {
+      cachedSettings = raw
+        ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }
+        : DEFAULT_SETTINGS;
+    } catch {
+      cachedSettings = DEFAULT_SETTINGS;
+    }
   }
+  return cachedSettings;
 }
 
 export function saveSettings(settings: Settings) {
   localStorage.setItem(KEY, JSON.stringify(settings));
-}
-
-/** Standaardperiode voor grafiekpagina's; veilig aan te roepen in useEffect. */
-export function defaultRange(): RangeKey {
-  return loadSettings().defaultRange;
 }

@@ -1,13 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { RANGES } from "@/lib/data";
-import {
-  DEFAULT_SETTINGS,
-  loadSettings,
-  saveSettings,
-  type Settings,
-} from "@/lib/settings";
+import { saveSettings, type Settings } from "@/lib/settings";
+import { useStoredSettings } from "@/lib/useSettings";
 import { PageHeader } from "@/components/PageHeader";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Switch } from "@/components/Switch";
@@ -65,19 +61,15 @@ const INTEGRATIONS = [
 ];
 
 export default function InstellingenPage() {
-  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
-  const [loaded, setLoaded] = useState(false);
+  const stored = useStoredSettings();
+  const [override, setOverride] = useState<Settings | null>(null);
+  const settings = override ?? stored;
   const [saved, setSaved] = useState(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    setSettings(loadSettings());
-    setLoaded(true);
-  }, []);
-
   const update = (patch: Partial<Settings>) => {
     const next = { ...settings, ...patch };
-    setSettings(next);
+    setOverride(next);
     saveSettings(next);
     setSaved(true);
     if (savedTimer.current) clearTimeout(savedTimer.current);
@@ -111,8 +103,7 @@ export default function InstellingenPage() {
         </span>
       </div>
 
-      {loaded && (
-        <>
+      <>
           <Section title="Bedrijfsprofiel">
             <Row label="Bedrijfsnaam">
               <input
@@ -238,8 +229,7 @@ export default function InstellingenPage() {
               </Row>
             ))}
           </Section>
-        </>
-      )}
+      </>
     </div>
   );
 }

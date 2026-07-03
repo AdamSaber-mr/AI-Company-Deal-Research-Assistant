@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { briefing, longDate, ANCHOR_DATE } from "@/lib/data";
-import { DEFAULT_SETTINGS, loadSettings } from "@/lib/settings";
+import { useStoredSettings } from "@/lib/useSettings";
 
 export function Briefing() {
-  const [ownerName, setOwnerName] = useState(DEFAULT_SETTINGS.ownerName);
-  useEffect(() => setOwnerName(loadSettings().ownerName), []);
+  const { ownerName } = useStoredSettings();
 
   return (
     <section className="rounded-2xl border border-edge bg-surface p-6 sm:p-8">
