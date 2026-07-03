@@ -107,6 +107,10 @@ export function periodDelta(points: DayPoint[], days: number): number {
   return Math.round(((current - previous) / previous) * 1000) / 10;
 }
 
+export function productCount(n: number): string {
+  return `${n} ${n === 1 ? "product" : "producten"}`;
+}
+
 export type Severity = "good" | "warning" | "serious" | "critical";
 
 export type Product = {
@@ -150,6 +154,20 @@ export const staffing: Department[] = [
   { name: "Keuken", present: 4, planned: 4 },
   { name: "Bezorging", present: 3, planned: 3 },
   { name: "Klantenservice", present: 2, planned: 3 },
+];
+
+export type TicketCategory = {
+  name: string;
+  count: number; // deze week
+  deltaVsNormal: number; // % t.o.v. 12-weeks gemiddelde
+};
+
+export const ticketCategories: TicketCategory[] = [
+  { name: "Vertraagde bezorging", count: 19, deltaVsNormal: 111 },
+  { name: "Vragen over bestelling", count: 14, deltaVsNormal: 8 },
+  { name: "Productkwaliteit", count: 9, deltaVsNormal: -5 },
+  { name: "Retouren", count: 7, deltaVsNormal: 12 },
+  { name: "Overig", count: 5, deltaVsNormal: -2 },
 ];
 
 export type Alert = {
