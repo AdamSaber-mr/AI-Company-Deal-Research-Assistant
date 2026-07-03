@@ -13,11 +13,13 @@ import {
   number,
   inventory,
   staffing,
+  productCount,
 } from "@/lib/data";
 import { StatTile } from "./StatTile";
 import { RevenueChart } from "./RevenueChart";
 import { TicketsChart } from "./TicketsChart";
 import { SeverityIcon } from "./severity";
+import { RangeFilter } from "./RangeFilter";
 
 export function Dashboard() {
   const [range, setRange] = useState<RangeKey>("30d");
@@ -42,25 +44,7 @@ export function Dashboard() {
   return (
     <div className="flex flex-col gap-4">
       {/* Filterrij: één rij, links uitgelijnd, boven alles wat hij scopet */}
-      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Periode">
-        {RANGES.map((r) => {
-          const active = r.key === range;
-          return (
-            <button
-              key={r.key}
-              onClick={() => setRange(r.key)}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                active
-                  ? "bg-ink text-page"
-                  : "text-ink-secondary hover:bg-accent-track/60"
-              }`}
-              aria-pressed={active}
-            >
-              {r.label}
-            </button>
-          );
-        })}
-      </div>
+      <RangeFilter value={range} onChange={setRange} />
 
       {/* KPI-tegels */}
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
@@ -81,7 +65,7 @@ export function Dashboard() {
         />
         <StatTile
           label="Voorraad kritiek"
-          value={`${criticalStock} producten`}
+          value={productCount(criticalStock)}
           delta={undefined}
         />
         <StatTile label="Bezetting vandaag" value={`${present} / ${planned}`} />
