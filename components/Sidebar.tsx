@@ -97,27 +97,48 @@ function Logo() {
   );
 }
 
+const SETTINGS_ITEM: NavItem = {
+  href: "/instellingen",
+  label: "Instellingen",
+  icon: (
+    <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden>
+      <path
+        d="M9 11.4a2.4 2.4 0 100-4.8 2.4 2.4 0 000 4.8zM14.6 9c0-.42-.05-.83-.13-1.22l1.53-1.19-1.5-2.6-1.8.73a5.6 5.6 0 00-2.1-1.22L10.3 1.6H7.7l-.3 1.9a5.6 5.6 0 00-2.1 1.22l-1.8-.73-1.5 2.6 1.53 1.19a5.7 5.7 0 000 2.44L2 11.41l1.5 2.6 1.8-.73c.6.55 1.32.97 2.1 1.22l.3 1.9h2.6l.3-1.9a5.6 5.6 0 002.1-1.22l1.8.73 1.5-2.6-1.53-1.19c.08-.39.13-.8.13-1.22z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
+};
+
+function NavLink({ item, active }: { item: NavItem; active: boolean }) {
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
+        active
+          ? "bg-accent-track/70 font-medium text-ink"
+          : "text-ink-secondary hover:bg-accent-track/40 hover:text-ink"
+      }`}
+    >
+      <span className={active ? "text-accent" : "text-ink-muted"}>{item.icon}</span>
+      <span className="whitespace-nowrap">{item.label}</span>
+    </Link>
+  );
+}
+
 export function Sidebar() {
   const pathname = usePathname();
 
-  const items = NAV.map((item) => {
-    const active = pathname === item.href;
-    return (
-      <Link
-        key={item.href}
-        href={item.href}
-        aria-current={active ? "page" : undefined}
-        className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
-          active
-            ? "bg-accent-track/70 font-medium text-ink"
-            : "text-ink-secondary hover:bg-accent-track/40 hover:text-ink"
-        }`}
-      >
-        <span className={active ? "text-accent" : "text-ink-muted"}>{item.icon}</span>
-        <span className="whitespace-nowrap">{item.label}</span>
-      </Link>
-    );
-  });
+  const items = NAV.map((item) => (
+    <NavLink key={item.href} item={item} active={pathname === item.href} />
+  ));
+  const settingsLink = (
+    <NavLink item={SETTINGS_ITEM} active={pathname === SETTINGS_ITEM.href} />
+  );
 
   return (
     <>
@@ -127,12 +148,15 @@ export function Sidebar() {
         <nav className="flex flex-col gap-1" aria-label="Hoofdnavigatie">
           {items}
         </nav>
-        <div className="mt-auto flex flex-col gap-3 px-3">
+        <div className="mt-auto flex flex-col gap-3">
+          <div className="border-t border-edge pt-3">{settingsLink}</div>
+          <div className="px-3 flex flex-col gap-3">
           <ThemeToggle />
           <span className="flex w-fit items-center gap-1.5 rounded-full border border-edge px-3 py-1 text-xs text-ink-secondary">
             <span className="h-1.5 w-1.5 rounded-full bg-good" />
             Live · demo-data
           </span>
+          </div>
         </div>
       </aside>
 
@@ -144,6 +168,7 @@ export function Sidebar() {
         </div>
         <nav className="flex gap-1 overflow-x-auto pb-1" aria-label="Hoofdnavigatie">
           {items}
+          {settingsLink}
         </nav>
       </div>
     </>
