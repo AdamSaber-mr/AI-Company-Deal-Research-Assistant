@@ -149,14 +149,14 @@ export function Sidebar() {
           {items}
         </nav>
         <div className="mt-auto flex flex-col gap-3">
-          <div className="border-t border-edge pt-3">{settingsLink}</div>
-          <div className="px-3 flex flex-col gap-3">
-          <ThemeToggle />
-          <span className="flex w-fit items-center gap-1.5 rounded-full border border-edge px-3 py-1 text-xs text-ink-secondary">
-            <span className="h-1.5 w-1.5 rounded-full bg-good" />
-            Live · demo-data
-          </span>
+          <div className="flex flex-col gap-3 px-3">
+            <ThemeToggle />
+            <span className="flex w-fit items-center gap-1.5 rounded-full border border-edge px-3 py-1 text-xs text-ink-secondary">
+              <span className="h-1.5 w-1.5 rounded-full bg-good" />
+              Live · demo-data
+            </span>
           </div>
+          <div className="border-t border-edge pt-3">{settingsLink}</div>
         </div>
       </aside>
 
