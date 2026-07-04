@@ -6,7 +6,7 @@ import { AlertsFeed } from "@/components/AlertsFeed";
 
 export default function OverzichtPage() {
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8">
+    <div className="stagger mx-auto flex max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8">
       <Briefing />
       <Dashboard />
 

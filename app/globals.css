@@ -106,8 +106,108 @@ body {
   color: var(--ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 ::selection {
   background: var(--accent-track);
+}
+
+/* ------------------------------- animaties -------------------------------
+   Kleine, herbruikbare set: rustig en snel, met `both` zodat elementen
+   onzichtbaar starten. Alles wordt uitgezet bij prefers-reduced-motion. */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+}
+
+@keyframes grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes draw-line {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.anim-fade {
+  animation: fade-in 0.35s ease both;
+}
+
+.anim-rise {
+  animation: fade-in-up 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.anim-pop {
+  animation: pop-in 0.16s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Staven groeien vanaf de basislijn (transform-origin per grafiek gezet) */
+.anim-grow {
+  transform-box: view-box;
+  animation: grow-y 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Lijn tekent zichzelf; vereist pathLength={1} op het pad */
+.anim-draw {
+  stroke-dasharray: 1;
+  animation: draw-line 0.9s ease-out 0.1s both;
+}
+
+/* Directe kinderen verschijnen na elkaar (kaarten, secties, chips) */
+.stagger > * {
+  animation: fade-in-up 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.stagger > *:nth-child(2) {
+  animation-delay: 60ms;
+}
+.stagger > *:nth-child(3) {
+  animation-delay: 120ms;
+}
+.stagger > *:nth-child(4) {
+  animation-delay: 180ms;
+}
+.stagger > *:nth-child(5) {
+  animation-delay: 240ms;
+}
+.stagger > *:nth-child(6) {
+  animation-delay: 300ms;
+}
+.stagger > *:nth-child(7) {
+  animation-delay: 360ms;
+}
+.stagger > *:nth-child(n + 8) {
+  animation-delay: 420ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -86,11 +86,11 @@ export function CommandPalette() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-[14vh]"
+      className="anim-fade fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-[14vh]"
       onClick={() => setOpen(false)}
     >
       <div
-        className="w-full max-w-lg overflow-hidden rounded-2xl border border-edge bg-raised shadow-2xl"
+        className="anim-pop w-full max-w-lg overflow-hidden rounded-2xl border border-edge bg-raised shadow-2xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label="Command palette"

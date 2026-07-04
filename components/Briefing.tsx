@@ -27,7 +27,7 @@ export function Briefing() {
         {briefing.summary}
       </p>
 
-      <ol className="mt-5 flex flex-col gap-2.5">
+      <ol className="stagger mt-5 flex flex-col gap-2.5">
         {briefing.actions.map((action, i) => (
           <li key={action} className="flex items-start gap-3 text-sm">
             <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-track text-[0.7rem] font-semibold text-accent">

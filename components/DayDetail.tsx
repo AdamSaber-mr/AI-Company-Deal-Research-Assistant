@@ -36,7 +36,7 @@ export function DayDetail({
   const fmtDelta = (delta: number) => `${delta > 0 ? "+" : ""}${delta}%`;
 
   return (
-    <div className="mt-4 rounded-xl border border-edge bg-raised p-4">
+    <div className="anim-rise mt-4 rounded-xl border border-edge bg-raised p-4">
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-semibold capitalize">
           {longDate.format(point.date)}

@@ -9,7 +9,7 @@ export default function SignaleringenPage() {
   const watch = alerts.filter((a) => a.severity === "warning").length;
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8">
+    <div className="stagger mx-auto flex max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8">
       <PageHeader
         title="AI-signaleringen"
         subtitle="Automatisch gedetecteerde afwijkingen in omzet, tickets, voorraad en bezetting."

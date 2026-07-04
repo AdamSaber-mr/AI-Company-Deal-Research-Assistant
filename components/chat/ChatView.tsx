@@ -128,7 +128,7 @@ function ConversationMenu({ conversation }: { conversation: Conversation }) {
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={close} aria-hidden />
-          <div className="absolute right-0 top-9 z-40 flex w-56 flex-col rounded-xl border border-edge bg-raised p-1 shadow-lg">
+          <div className="anim-pop absolute right-0 top-9 z-40 flex w-56 flex-col rounded-xl border border-edge bg-raised p-1 shadow-lg">
             <button
               type="button"
               className={itemClass}
@@ -194,7 +194,7 @@ function ConversationMenu({ conversation }: { conversation: Conversation }) {
 
 function ThinkingIndicator() {
   return (
-    <div className="flex items-center gap-3">
+    <div className="anim-fade flex items-center gap-3">
       <AssistantAvatar />
       <div className="flex items-center gap-1" aria-label="De assistent denkt na">
         {[0, 1, 2].map((i) => (
@@ -271,7 +271,7 @@ function UserMessage({
   }
 
   return (
-    <div className="group flex flex-col items-end gap-1">
+    <div className="anim-rise group flex flex-col items-end gap-1">
       <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md border border-edge bg-surface px-4 py-2.5 text-[0.95rem] leading-relaxed">
         {message.content}
       </div>
@@ -315,7 +315,7 @@ function AssistantMessage({
   const source = question ? sourceFor(question) : null;
   const followUps = question ? followUpsFor(question) : [];
   return (
-    <div className="group flex gap-3">
+    <div className="anim-rise group flex gap-3">
       <div className="mt-0.5">
         <AssistantAvatar />
       </div>
@@ -369,7 +369,7 @@ function AssistantMessage({
 
         {/* Bronlink + follow-up-suggesties, alleen onder het laatste antwoord */}
         {!streaming && isLast && (source || followUps.length > 0) && (
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="stagger mt-3 flex flex-wrap gap-2">
             {source && (
               <Link
                 href={source.href}
@@ -383,7 +383,7 @@ function AssistantMessage({
                 key={followUp}
                 type="button"
                 onClick={() => onFollowUp(followUp)}
-                className="rounded-full border border-edge bg-surface px-3 py-1.5 text-xs text-ink-secondary transition-colors hover:border-accent/50 hover:text-ink"
+                className="rounded-full border border-edge bg-surface px-3 py-1.5 text-xs text-ink-secondary transition-all duration-150 hover:-translate-y-0.5 hover:border-accent/50 hover:text-ink"
               >
                 {followUp}
               </button>

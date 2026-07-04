@@ -180,9 +180,10 @@ function NavLink({
   const badge = BADGE_BY_HREF[item.href] ?? null;
   const badgeChip = badge && (
     <span
-      className={`flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none ${BADGE_STYLE[badge.severity]} ${
+      className={`anim-pop flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none ${BADGE_STYLE[badge.severity]} ${
         collapsed ? "absolute -right-1 -top-1" : "ml-auto"
       }`}
+      style={{ animationDelay: "250ms" }}
       aria-label={`${badge.count} ${badge.count === 1 ? "melding" : "meldingen"}`}
     >
       {badge.count}
@@ -312,7 +313,7 @@ function ChatItem({ chat, active }: { chat: Conversation; active: boolean }) {
       {menuOpen && (
         <>
           <div className="fixed inset-0 z-30" onClick={closeMenu} aria-hidden />
-          <div className="absolute right-0 top-8 z-40 flex w-44 flex-col rounded-xl border border-edge bg-raised p-1 shadow-lg">
+          <div className="anim-pop absolute right-0 top-8 z-40 flex w-44 flex-col rounded-xl border border-edge bg-raised p-1 shadow-lg">
             <button
               type="button"
               onClick={() => {
@@ -476,7 +477,7 @@ export function Sidebar() {
       <aside
         style={{ width: collapsed ? COLLAPSED_WIDTH : width }}
         className={`sticky top-0 hidden h-screen shrink-0 flex-col gap-4 border-r border-edge bg-surface py-6 px-3 lg:flex ${
-          resizing ? "select-none" : ""
+          resizing ? "select-none" : "transition-[width] duration-200 ease-out"
         }`}
       >
         {!collapsed && (
@@ -687,7 +688,7 @@ export function Sidebar() {
         </nav>
 
         {mobileChatsOpen && (
-          <div className="flex flex-col gap-0.5 border-t border-edge pt-2 pb-1">
+          <div className="anim-rise flex flex-col gap-0.5 border-t border-edge pt-2 pb-1">
             {conversations.filter((c) => !c.archived).length === 0 ? (
               <p className="px-3 py-1 text-xs text-ink-muted">
                 Nog geen gesprekken — begin een nieuwe chat.

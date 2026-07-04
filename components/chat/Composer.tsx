@@ -66,7 +66,7 @@ export function Composer({
   return (
     <div className="relative rounded-2xl border border-edge bg-raised shadow-sm transition-colors focus-within:border-accent/60">
       {menuOpen && (
-        <div className="absolute bottom-full left-0 right-0 z-20 mb-2 overflow-hidden rounded-xl border border-edge bg-raised p-1 shadow-lg">
+        <div className="anim-pop absolute bottom-full left-0 right-0 z-20 mb-2 overflow-hidden rounded-xl border border-edge bg-raised p-1 shadow-lg">
           {slashMatches.map((cmd, i) => (
             <button
               key={cmd.command}
@@ -167,7 +167,7 @@ export function Composer({
             type="button"
             onClick={send}
             disabled={!text.trim()}
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-white transition-opacity disabled:opacity-35"
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-white transition-all duration-150 active:scale-90 disabled:opacity-35"
             aria-label="Verzenden"
             title="Verzenden"
           >

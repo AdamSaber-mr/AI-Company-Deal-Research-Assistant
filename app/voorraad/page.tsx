@@ -10,7 +10,7 @@ export default function VoorraadPage() {
   const attention = inventory.filter((p) => p.daysLeft > 7 && p.daysLeft <= 14).length;
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8">
+    <div className="stagger mx-auto flex max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <PageHeader
           title="Voorraad"

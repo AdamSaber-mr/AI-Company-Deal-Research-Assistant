@@ -41,7 +41,7 @@ export default function KlantenservicePage() {
   const maxCat = Math.max(...ticketCategories.map((c) => c.count));
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8">
+    <div className="stagger mx-auto flex max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8">
       <PageHeader
         title="Klantenservice"
         subtitle="Binnengekomen tickets en waar ze over gaan."

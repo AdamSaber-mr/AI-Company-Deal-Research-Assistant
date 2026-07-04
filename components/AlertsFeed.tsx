@@ -10,7 +10,7 @@ export function AlertsFeed() {
         <span className="text-xs text-ink-muted">vanochtend bijgewerkt</span>
       </div>
 
-      <ul className="mt-4 flex flex-col divide-y divide-[var(--grid)]">
+      <ul className="stagger mt-4 flex flex-col divide-y divide-[var(--grid)]">
         {alerts.map((a) => (
           <li key={a.title} className="flex gap-3 py-3.5 first:pt-0 last:pb-0">
             <SeverityIcon severity={a.severity} />
