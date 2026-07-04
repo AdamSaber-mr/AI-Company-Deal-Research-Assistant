@@ -170,8 +170,11 @@ export const ticketCategories: TicketCategory[] = [
   { name: "Overig", count: 5, deltaVsNormal: -2 },
 ];
 
+export type AlertArea = "omzet" | "klantenservice" | "voorraad" | "personeel";
+
 export type Alert = {
   severity: Severity;
+  area: AlertArea;
   title: string;
   detail: string;
   time: string;
@@ -180,6 +183,7 @@ export type Alert = {
 export const alerts: Alert[] = [
   {
     severity: "critical",
+    area: "voorraad",
     title: "Voorraad bijna op: espressobonen",
     detail:
       "Barista espressobonen 1 kg is bij het huidige verkooptempo over 3 dagen op. Gebruikelijke levertijd is 4 werkdagen — bestel vandaag.",
@@ -187,6 +191,7 @@ export const alerts: Alert[] = [
   },
   {
     severity: "serious",
+    area: "klantenservice",
     title: "40% meer klachten dan normaal",
     detail:
       "Deze week kwamen er 40% meer klantenservice-tickets binnen dan het gemiddelde van de afgelopen 12 weken. 8 van de 12 extra tickets gaan over vertraagde bezorging.",
@@ -194,6 +199,7 @@ export const alerts: Alert[] = [
   },
   {
     severity: "warning",
+    area: "personeel",
     title: "Onderbezetting bediening",
     detail:
       "Vandaag staan 6 van de 8 geplande medewerkers ingeroosterd bij Bediening. Zaterdag is historisch de drukste dag.",
@@ -201,6 +207,7 @@ export const alerts: Alert[] = [
   },
   {
     severity: "good",
+    area: "omzet",
     title: "Omzet ligt op koers",
     detail:
       "De omzet van deze week ligt 6% boven dezelfde week vorige maand. Geen actie nodig.",

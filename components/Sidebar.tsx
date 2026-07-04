@@ -1,15 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   deleteConversation,
   renameConversation,
+  toggleArchive,
   togglePin,
   type Conversation,
 } from "@/lib/chat";
+import { alerts, type Alert, type Severity } from "@/lib/data";
 import { useConversations } from "@/lib/useChats";
+import { CommandPalette } from "./CommandPalette";
 import { ThemeToggle } from "./ThemeToggle";
 
 type NavItem = {
@@ -106,41 +109,105 @@ const NEW_CHAT_ICON = (
   </svg>
 );
 
-function Logo() {
+function Logo({ collapsed = false }: { collapsed?: boolean }) {
   return (
-    <Link href="/" className="flex items-center gap-2.5 px-3">
+    <Link
+      href="/"
+      className={`flex items-center gap-2.5 ${collapsed ? "justify-center px-0" : "px-3"}`}
+      title={collapsed ? "Kompas" : undefined}
+    >
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-white">
-        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
-          <path
-            d="M2 13V8.5M6 13V3M10 13V6M14 13v-3"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
+        <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden>
+          <circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" strokeWidth="1.7" />
+          <path d="M12 6l-1.9 4.1L6 12l1.9-4.1z" fill="currentColor" />
         </svg>
       </span>
-      <span className="text-sm font-semibold leading-tight tracking-tight">
-        Bedrijfs
-        <br />
-        Command Center
-      </span>
+      {!collapsed && (
+        <span className="leading-tight">
+          <span className="block text-sm font-semibold tracking-tight">Kompas</span>
+          <span className="block text-[11px] text-ink-muted">Research Assistant</span>
+        </span>
+      )}
     </Link>
   );
 }
 
-function NavLink({ item, active }: { item: NavItem; active: boolean }) {
+// Badge per pagina, gekleurd naar de zwaarste melding: urgent = rood,
+// actie nodig = oranje, let op = amber. Goed nieuws krijgt geen badge.
+const SEVERITY_RANK: Record<Severity, number> = {
+  critical: 3,
+  serious: 2,
+  warning: 1,
+  good: 0,
+};
+
+type Badge = { count: number; severity: Severity };
+
+function badgeFor(items: Alert[]): Badge | null {
+  if (items.length === 0) return null;
+  const top = items.reduce((a, b) =>
+    SEVERITY_RANK[b.severity] > SEVERITY_RANK[a.severity] ? b : a
+  );
+  return { count: items.length, severity: top.severity };
+}
+
+const flagged = alerts.filter((a) => a.severity !== "good");
+
+const BADGE_BY_HREF: Record<string, Badge | null> = {
+  "/omzet": badgeFor(flagged.filter((a) => a.area === "omzet")),
+  "/klantenservice": badgeFor(flagged.filter((a) => a.area === "klantenservice")),
+  "/voorraad": badgeFor(flagged.filter((a) => a.area === "voorraad")),
+  "/personeel": badgeFor(flagged.filter((a) => a.area === "personeel")),
+  "/signaleringen": badgeFor(flagged),
+};
+
+const BADGE_STYLE: Record<Severity, string> = {
+  critical: "bg-critical text-white",
+  serious: "bg-serious text-white",
+  warning: "bg-warning text-[#3d2e00]",
+  good: "bg-good text-white",
+};
+
+function NavLink({
+  item,
+  active,
+  collapsed = false,
+}: {
+  item: NavItem;
+  active: boolean;
+  collapsed?: boolean;
+}) {
+  const badge = BADGE_BY_HREF[item.href] ?? null;
+  const badgeChip = badge && (
+    <span
+      className={`flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none ${BADGE_STYLE[badge.severity]} ${
+        collapsed ? "absolute -right-1 -top-1" : "ml-auto"
+      }`}
+      aria-label={`${badge.count} ${badge.count === 1 ? "melding" : "meldingen"}`}
+    >
+      {badge.count}
+    </span>
+  );
+
   return (
     <Link
       href={item.href}
       aria-current={active ? "page" : undefined}
-      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
+      title={collapsed ? item.label : undefined}
+      className={`flex items-center gap-2.5 rounded-lg text-sm transition-colors ${
+        collapsed ? "relative justify-center px-0 py-2" : "px-3 py-2"
+      } ${
         active
           ? "bg-accent-track/70 font-medium text-ink"
           : "text-ink-secondary hover:bg-accent-track/40 hover:text-ink"
       }`}
     >
-      <span className={active ? "text-accent" : "text-ink-muted"}>{item.icon}</span>
-      <span className="whitespace-nowrap">{item.label}</span>
+      <span className={`relative ${active ? "text-accent" : "text-ink-muted"}`}>
+        {item.icon}
+        {collapsed && badgeChip}
+      </span>
+      {!collapsed && <span className="whitespace-nowrap">{item.label}</span>}
+      {!collapsed && badgeChip}
     </Link>
   );
 }
@@ -270,6 +337,16 @@ function ChatItem({ chat, active }: { chat: Conversation; active: boolean }) {
             <button
               type="button"
               onClick={() => {
+                toggleArchive(chat.id);
+                closeMenu();
+              }}
+              className="rounded-lg px-3 py-1.5 text-left text-sm text-ink-secondary hover:bg-accent-track/40 hover:text-ink"
+            >
+              {chat.archived ? "Terugzetten" : "Archiveren"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
                 if (!confirming) {
                   setConfirming(true);
                   return;
@@ -289,25 +366,84 @@ function ChatItem({ chat, active }: { chat: Conversation; active: boolean }) {
   );
 }
 
+/* ----------------------------- breedte slepen ----------------------------- */
+
+// De sidebar-breedte is met de muis aanpasbaar en wordt bewaard in
+// localStorage; zelfde snapshot-patroon als de instellingen.
+const WIDTH_KEY = "bcc-sidebar-width";
+const WIDTH_DEFAULT = 256;
+const WIDTH_MIN = 200;
+const WIDTH_MAX = 420;
+
+const clampWidth = (w: number) =>
+  Math.min(WIDTH_MAX, Math.max(WIDTH_MIN, Math.round(w)));
+
+const noopSubscribe = () => () => {};
+const serverWidth = () => WIDTH_DEFAULT;
+
+function storedWidth(): number {
+  const raw = localStorage.getItem(WIDTH_KEY);
+  const n = raw ? Number.parseInt(raw, 10) : NaN;
+  return Number.isFinite(n) ? clampWidth(n) : WIDTH_DEFAULT;
+}
+
+const COLLAPSE_KEY = "bcc-sidebar-collapsed";
+const COLLAPSED_WIDTH = 68;
+
+const storedCollapsed = () => localStorage.getItem(COLLAPSE_KEY) === "1";
+const serverCollapsed = () => false;
+
+function useSidebarCollapsed() {
+  const stored = useSyncExternalStore(noopSubscribe, storedCollapsed, serverCollapsed);
+  const [override, setOverride] = useState<boolean | null>(null);
+  const collapsed = override ?? stored;
+
+  const toggle = () => {
+    const next = !collapsed;
+    setOverride(next);
+    localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+  };
+
+  return { collapsed, toggle };
+}
+
+function useSidebarWidth() {
+  const stored = useSyncExternalStore(noopSubscribe, storedWidth, serverWidth);
+  const [override, setOverride] = useState<number | null>(null);
+  const [resizing, setResizing] = useState(false);
+
+  const handleProps = {
+    onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      setResizing(true);
+    },
+    onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!resizing) return;
+      setOverride(clampWidth(e.clientX));
+    },
+    onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!resizing) return;
+      setResizing(false);
+      localStorage.setItem(WIDTH_KEY, String(clampWidth(e.clientX)));
+    },
+    onDoubleClick: () => {
+      localStorage.removeItem(WIDTH_KEY);
+      setOverride(null);
+    },
+  };
+
+  return { width: override ?? stored, resizing, handleProps };
+}
+
 /* -------------------------------- sidebar -------------------------------- */
 
 export function Sidebar() {
   const pathname = usePathname();
   const conversations = useConversations();
   const [query, setQuery] = useState("");
-  const searchRef = useRef<HTMLInputElement>(null);
-
-  // ⌘K / Ctrl+K focust het zoekveld, net als in Claude.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        searchRef.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  const { width, resizing, handleProps } = useSidebarWidth();
+  const { collapsed, toggle } = useSidebarCollapsed();
 
   const q = query.trim().toLowerCase();
   const filtered = q
@@ -317,9 +453,17 @@ export function Sidebar() {
           c.messages.some((m) => m.content.toLowerCase().includes(q))
       )
     : conversations;
-  const groups = groupChats(filtered);
+  const archivedChats = filtered
+    .filter((c) => c.archived)
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+  const groups = groupChats(filtered.filter((c) => !c.archived));
+  const [showArchived, setShowArchived] = useState(false);
+  const [mobileChatsOpen, setMobileChatsOpen] = useState(false);
 
-  const navItems = NAV.map((item) => (
+  const desktopNav = NAV.map((item) => (
+    <NavLink key={item.href} item={item} active={pathname === item.href} collapsed={collapsed} />
+  ));
+  const mobileNav = NAV.map((item) => (
     <NavLink key={item.href} item={item} active={pathname === item.href} />
   ));
   const settingsLink = (
@@ -328,97 +472,184 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Desktop: vaste sidebar links */}
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col gap-4 border-r border-edge bg-surface py-6 px-3 lg:flex">
-        <Logo />
+      {/* Desktop: vaste sidebar links; breedte sleepbaar, inklapbaar tot icoontjes */}
+      <aside
+        style={{ width: collapsed ? COLLAPSED_WIDTH : width }}
+        className={`sticky top-0 hidden h-screen shrink-0 flex-col gap-4 border-r border-edge bg-surface py-6 px-3 lg:flex ${
+          resizing ? "select-none" : ""
+        }`}
+      >
+        {!collapsed && (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Sidebar-breedte aanpassen"
+            title="Sleep om de breedte aan te passen · dubbelklik voor standaardbreedte"
+            {...handleProps}
+            className={`absolute -right-1 top-0 z-20 h-full w-2 cursor-col-resize transition-colors ${
+              resizing ? "bg-accent/70" : "hover:bg-accent/40"
+            }`}
+          />
+        )}
+
+        <div
+          className={
+            collapsed
+              ? "flex flex-col items-center gap-2"
+              : "flex items-center justify-between gap-2 pr-1"
+          }
+        >
+          <Logo collapsed={collapsed} />
+          <button
+            type="button"
+            onClick={toggle}
+            title={collapsed ? "Sidebar uitklappen" : "Sidebar inklappen"}
+            aria-label={collapsed ? "Sidebar uitklappen" : "Sidebar inklappen"}
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-accent-track/40 hover:text-ink"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+              {collapsed ? (
+                <path d="M6 3.5L10.5 8 6 12.5" {...stroke} />
+              ) : (
+                <path d="M10 3.5L5.5 8 10 12.5" {...stroke} />
+              )}
+            </svg>
+          </button>
+        </div>
 
         <div className="flex flex-col gap-1">
           <Link
             href="/"
-            className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+            title={collapsed ? "Nieuwe chat" : undefined}
+            className={`flex items-center gap-2.5 rounded-lg text-sm font-medium transition-colors ${
+              collapsed ? "justify-center px-0 py-2" : "px-3 py-2"
+            } ${
               pathname === "/"
                 ? "bg-accent-track/70 text-ink"
                 : "text-accent hover:bg-accent-track/40"
             }`}
           >
             <span className={pathname === "/" ? "text-accent" : ""}>{NEW_CHAT_ICON}</span>
-            Nieuwe chat
+            {!collapsed && "Nieuwe chat"}
           </Link>
 
-          <div className="relative px-0.5">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 16 16"
-              aria-hidden
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
-            >
-              <circle cx="7" cy="7" r="4.5" {...stroke} />
-              <path d="M10.5 10.5L14 14" {...stroke} />
-            </svg>
-            <input
-              ref={searchRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Chats zoeken"
-              className="w-full rounded-lg border border-edge bg-transparent py-1.5 pl-8 pr-9 text-sm outline-none placeholder:text-ink-muted focus:border-accent/50"
-              aria-label="Chats zoeken"
-            />
-            <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-edge px-1 text-[10px] text-ink-muted">
-              ⌘K
-            </kbd>
-          </div>
-        </div>
-
-        <div className="-mx-1 flex-1 overflow-y-auto px-1" aria-label="Gespreksgeschiedenis">
-          {groups.length === 0 ? (
-            <p className="px-3 py-2 text-xs leading-relaxed text-ink-muted">
-              {q
-                ? "Geen gesprekken gevonden."
-                : "Nog geen gesprekken — begin een nieuwe chat."}
-            </p>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {groups.map((group) => (
-                <div key={group.label}>
-                  <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
-                    {group.label}
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    {group.items.map((chat) => (
-                      <ChatItem
-                        key={chat.id}
-                        chat={chat}
-                        active={pathname === `/chat/${chat.id}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
+          {!collapsed && (
+            <div className="relative px-0.5">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 16 16"
+                aria-hidden
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
+              >
+                <circle cx="7" cy="7" r="4.5" {...stroke} />
+                <path d="M10.5 10.5L14 14" {...stroke} />
+              </svg>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Chats zoeken"
+                className="w-full rounded-lg border border-edge bg-transparent py-1.5 pl-8 pr-9 text-sm outline-none placeholder:text-ink-muted focus:border-accent/50"
+                aria-label="Chats zoeken"
+              />
+              <kbd
+                className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-edge px-1 text-[10px] text-ink-muted"
+                title="⌘K opent het zoekpalet"
+              >
+                ⌘K
+              </kbd>
             </div>
           )}
         </div>
 
-        <div className="border-t border-edge pt-3">
-          <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
-            Dashboard
+        {collapsed ? (
+          <div className="flex-1" />
+        ) : (
+          <div className="-mx-1 flex-1 overflow-y-auto px-1" aria-label="Gespreksgeschiedenis">
+            {groups.length === 0 && archivedChats.length === 0 ? (
+              <p className="px-3 py-2 text-xs leading-relaxed text-ink-muted">
+                {q
+                  ? "Geen gesprekken gevonden."
+                  : "Nog geen gesprekken — begin een nieuwe chat."}
+              </p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {groups.map((group) => (
+                  <div key={group.label}>
+                    <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+                      {group.label}
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      {group.items.map((chat) => (
+                        <ChatItem
+                          key={chat.id}
+                          chat={chat}
+                          active={pathname === `/chat/${chat.id}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                {archivedChats.length > 0 && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setShowArchived((v) => !v)}
+                      className="flex w-full items-center gap-1 px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-ink-muted hover:text-ink"
+                    >
+                      Gearchiveerd ({archivedChats.length})
+                      <svg width="10" height="10" viewBox="0 0 16 16" aria-hidden>
+                        <path
+                          d={showArchived ? "M3.5 6L8 10.5 12.5 6" : "M6 3.5L10.5 8 6 12.5"}
+                          {...stroke}
+                        />
+                      </svg>
+                    </button>
+                    {showArchived && (
+                      <div className="flex flex-col gap-0.5">
+                        {archivedChats.map((chat) => (
+                          <ChatItem
+                            key={chat.id}
+                            chat={chat}
+                            active={pathname === `/chat/${chat.id}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
+        )}
+
+        <div className="border-t border-edge pt-3">
+          {!collapsed && (
+            <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+              Dashboard
+            </div>
+          )}
           <nav className="flex flex-col gap-0.5" aria-label="Hoofdnavigatie">
-            {navItems}
+            {desktopNav}
           </nav>
         </div>
 
         <div className="flex flex-col gap-3 border-t border-edge pt-3">
-          <div className="flex items-center justify-between gap-2 px-3">
-            <ThemeToggle />
-            <span className="flex w-fit items-center gap-1.5 rounded-full border border-edge px-2.5 py-1 text-[11px] text-ink-secondary">
-              <span className="h-1.5 w-1.5 rounded-full bg-good" />
-              Demo
-            </span>
-          </div>
-          {settingsLink}
+          {!collapsed && (
+            <div className="px-3">
+              <ThemeToggle />
+            </div>
+          )}
+          <NavLink
+            item={SETTINGS_ITEM}
+            active={pathname === SETTINGS_ITEM.href}
+            collapsed={collapsed}
+          />
         </div>
       </aside>
+
+      <CommandPalette />
 
       {/* Mobiel: logo + horizontale navigatie bovenaan */}
       <div className="flex flex-col gap-3 border-b border-edge bg-surface px-3 pt-4 pb-2 lg:hidden">
@@ -431,9 +662,58 @@ export function Sidebar() {
             item={{ href: "/", label: "Nieuwe chat", icon: NEW_CHAT_ICON }}
             active={pathname === "/"}
           />
-          {navItems}
+          <button
+            type="button"
+            onClick={() => setMobileChatsOpen((v) => !v)}
+            className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+              mobileChatsOpen
+                ? "bg-accent-track/70 font-medium text-ink"
+                : "text-ink-secondary hover:bg-accent-track/40 hover:text-ink"
+            }`}
+          >
+            <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden className="text-ink-muted">
+              <path
+                d="M15.5 8.5a6.5 6 0 01-6.5 6c-.8 0-1.6-.1-2.3-.35L2.5 15.5l1.2-3.2A5.8 5.8 0 012.5 8.5a6.5 6 0 0113 0z"
+                {...stroke}
+              />
+            </svg>
+            <span className="whitespace-nowrap">Chats</span>
+            <svg width="10" height="10" viewBox="0 0 16 16" aria-hidden>
+              <path d={mobileChatsOpen ? "M3.5 10L8 5.5 12.5 10" : "M3.5 6L8 10.5 12.5 6"} {...stroke} />
+            </svg>
+          </button>
+          {mobileNav}
           {settingsLink}
         </nav>
+
+        {mobileChatsOpen && (
+          <div className="flex flex-col gap-0.5 border-t border-edge pt-2 pb-1">
+            {conversations.filter((c) => !c.archived).length === 0 ? (
+              <p className="px-3 py-1 text-xs text-ink-muted">
+                Nog geen gesprekken — begin een nieuwe chat.
+              </p>
+            ) : (
+              conversations
+                .filter((c) => !c.archived)
+                .sort((a, b) => b.updatedAt - a.updatedAt)
+                .slice(0, 8)
+                .map((chat) => (
+                  <Link
+                    key={chat.id}
+                    href={`/chat/${chat.id}`}
+                    onClick={() => setMobileChatsOpen(false)}
+                    className={`truncate rounded-lg px-3 py-1.5 text-sm ${
+                      pathname === `/chat/${chat.id}`
+                        ? "bg-accent-track/70 font-medium text-ink"
+                        : "text-ink-secondary hover:bg-accent-track/40 hover:text-ink"
+                    }`}
+                  >
+                    {chat.title}
+                  </Link>
+                ))
+            )}
+          </div>
+        )}
       </div>
     </>
   );
