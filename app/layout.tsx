@@ -9,9 +9,9 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Bedrijfs Command Center",
+  title: "Kompas",
   description:
-    "Eén dashboard voor omzet, klantenservice, voorraad en personeel — met AI die afwijkingen signaleert.",
+    "Kompas — AI-researchassistent voor je bedrijf, met een dashboard voor omzet, klantenservice, voorraad en personeel.",
 };
 
 export default function RootLayout({
