@@ -185,7 +185,7 @@ function greeting(): string {
 }
 
 function capabilities(): string {
-  return `Ik ben de AI-assistent van je Bedrijfs Command Center. Ik kan vragen beantwoorden over:
+  return `Ik ben **Kompas**, je AI-researchassistent. Ik kan vragen beantwoorden over:
 
 - **Omzet** — trends, beste dagen, weekend versus doordeweeks
 - **Klantenservice** — ticketaantallen, pieken en categorieën
@@ -209,27 +209,125 @@ Stel je vraag gerust anders geformuleerd, dan kijk ik nog een keer.`;
 
 /* ----------------------------- matching ----------------------------- */
 
-export function answer(question: string, variant = 0): string {
+export type Topic =
+  | "greeting"
+  | "capabilities"
+  | "tickets"
+  | "inventory"
+  | "staffing"
+  | "revenue"
+  | "today"
+  | "fallback";
+
+export function classify(question: string): Topic {
   const q = question.toLowerCase();
   const has = (...words: string[]) => words.some((w) => q.includes(w));
 
   if (/^\s*(hoi|hallo|hey|hi|yo|goedemorgen|goedemiddag|goedenavond)[\s!.?]*$/.test(q)) {
-    return greeting();
+    return "greeting";
   }
-  if (has("wat kun je", "wat kan je", "wie ben je", "help")) return capabilities();
-  if (has("klacht", "ticket", "klantenservice", "bezorg")) return ticketsAnswer(variant);
-  if (has("voorraad", "bestel", "espresso", "bonen", "inkoop", "product")) {
-    return inventoryAnswer(variant);
-  }
+  if (has("wat kun je", "wat kan je", "wie ben je", "help")) return "capabilities";
+  if (has("klacht", "ticket", "klantenservice", "bezorg")) return "tickets";
+  if (has("voorraad", "bestel", "espresso", "bonen", "inkoop", "product")) return "inventory";
   if (has("personeel", "bezetting", "rooster", "medewerker", "ingepland", "bediening", "flexkracht")) {
-    return staffingAnswer(variant);
+    return "staffing";
   }
-  if (has("omzet", "verkoop", "verdien", "financ")) return revenueAnswer(variant);
+  if (has("omzet", "verkoop", "verdien", "financ")) return "revenue";
   if (has("vandaag", "briefing", "samenvatting", "signalering", "doen", "prioriteit", "overzicht")) {
-    return todayAnswer();
+    return "today";
   }
-  return fallback();
+  return "fallback";
 }
+
+export function answer(question: string, variant = 0): string {
+  switch (classify(question)) {
+    case "greeting":
+      return greeting();
+    case "capabilities":
+      return capabilities();
+    case "tickets":
+      return ticketsAnswer(variant);
+    case "inventory":
+      return inventoryAnswer(variant);
+    case "staffing":
+      return staffingAnswer(variant);
+    case "revenue":
+      return revenueAnswer(variant);
+    case "today":
+      return todayAnswer();
+    default:
+      return fallback();
+  }
+}
+
+/* --------------------- follow-ups, bronnen, commando's --------------------- */
+
+const DEFAULT_FOLLOW_UPS = [
+  "Wat moet ik vandaag doen?",
+  "Hoe ontwikkelt de omzet zich?",
+  "Wat moet ik vandaag bestellen?",
+];
+
+const FOLLOW_UPS: Record<Topic, string[]> = {
+  revenue: [
+    "Leg de omzet naast de klachtenpiek",
+    "Wat moet ik vandaag doen?",
+    "Staat er genoeg personeel ingepland?",
+  ],
+  tickets: [
+    "Wat moet ik vandaag bestellen?",
+    "Hoe ontwikkelt de omzet zich?",
+    "Wat moet ik vandaag doen?",
+  ],
+  inventory: [
+    "Waarom zijn er meer klachten deze week?",
+    "Staat er genoeg personeel ingepland?",
+    "Hoe ontwikkelt de omzet zich?",
+  ],
+  staffing: [
+    "Wat moet ik vandaag doen?",
+    "Waarom zijn er meer klachten deze week?",
+    "Hoe ontwikkelt de omzet zich?",
+  ],
+  today: [
+    "Waarom zijn er meer klachten deze week?",
+    "Wat moet ik vandaag bestellen?",
+    "Staat er genoeg personeel ingepland?",
+  ],
+  greeting: DEFAULT_FOLLOW_UPS,
+  capabilities: DEFAULT_FOLLOW_UPS,
+  fallback: DEFAULT_FOLLOW_UPS,
+};
+
+export function followUpsFor(question: string): string[] {
+  return FOLLOW_UPS[classify(question)];
+}
+
+export type AnswerSource = { href: string; label: string };
+
+const SOURCES: Partial<Record<Topic, AnswerSource>> = {
+  revenue: { href: "/omzet", label: "Bekijk omzet in het dashboard" },
+  tickets: { href: "/klantenservice", label: "Bekijk klantenservice in het dashboard" },
+  inventory: { href: "/voorraad", label: "Bekijk voorraad in het dashboard" },
+  staffing: { href: "/personeel", label: "Bekijk personeel in het dashboard" },
+  today: { href: "/signaleringen", label: "Bekijk alle signaleringen" },
+};
+
+export function sourceFor(question: string): AnswerSource | null {
+  return SOURCES[classify(question)] ?? null;
+}
+
+export type SlashCommand = { command: string; label: string; question: string };
+
+/** Slash-commando's voor de composer: /commando → kant-en-klare vraag. */
+export const COMMANDS: SlashCommand[] = [
+  { command: "/vandaag", label: "Ochtendbriefing", question: "Wat moet ik vandaag doen?" },
+  { command: "/omzet", label: "Omzet-analyse", question: "Hoe ontwikkelt de omzet zich?" },
+  { command: "/klachten", label: "Klachten & tickets", question: "Waarom zijn er deze week meer klachten?" },
+  { command: "/voorraad", label: "Bestellijst", question: "Wat moet ik vandaag bestellen?" },
+  { command: "/personeel", label: "Bezetting vandaag", question: "Staat er vandaag genoeg personeel ingepland?" },
+  { command: "/help", label: "Wat kan Kompas?", question: "Wat kun je allemaal?" },
+];
 
 /** Suggestie-chips op het welkomstscherm, gekoppeld aan de demo-data. */
 export const SUGGESTIONS = [

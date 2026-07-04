@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { COMMANDS } from "@/lib/assistant";
 
 const stroke = {
   fill: "none",
@@ -24,11 +25,28 @@ export function Composer({
   placeholder?: string;
 }) {
   const [text, setText] = useState("");
+  const [menuIndex, setMenuIndex] = useState(0);
+  const [menuDismissed, setMenuDismissed] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (autoFocus) ref.current?.focus();
   }, [autoFocus]);
+
+  // Slash-commando's: typ "/" en kies een kant-en-klare vraag.
+  const slashMatches =
+    !busy && !menuDismissed && text.startsWith("/")
+      ? COMMANDS.filter((c) => c.command.startsWith(text.trim().toLowerCase()))
+      : [];
+  const menuOpen = slashMatches.length > 0;
+
+  const chooseCommand = (index: number) => {
+    const cmd = slashMatches[index];
+    if (!cmd) return;
+    setText("");
+    requestAnimationFrame(grow);
+    onSend(cmd.question);
+  };
 
   const grow = () => {
     const el = ref.current;
@@ -46,7 +64,30 @@ export function Composer({
   };
 
   return (
-    <div className="rounded-2xl border border-edge bg-raised shadow-sm transition-colors focus-within:border-accent/60">
+    <div className="relative rounded-2xl border border-edge bg-raised shadow-sm transition-colors focus-within:border-accent/60">
+      {menuOpen && (
+        <div className="absolute bottom-full left-0 right-0 z-20 mb-2 overflow-hidden rounded-xl border border-edge bg-raised p-1 shadow-lg">
+          {slashMatches.map((cmd, i) => (
+            <button
+              key={cmd.command}
+              type="button"
+              onClick={() => chooseCommand(i)}
+              onMouseEnter={() => setMenuIndex(i)}
+              className={`flex w-full items-baseline gap-2.5 rounded-lg px-3 py-2 text-left text-sm ${
+                i === menuIndex ? "bg-accent-track/50" : ""
+              }`}
+            >
+              <span className="font-mono text-[0.8rem] font-medium text-accent">
+                {cmd.command}
+              </span>
+              <span className="font-medium">{cmd.label}</span>
+              <span className="ml-auto hidden truncate text-xs text-ink-muted sm:block">
+                {cmd.question}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
       <textarea
         ref={ref}
         rows={1}
@@ -54,9 +95,33 @@ export function Composer({
         placeholder={placeholder}
         onChange={(e) => {
           setText(e.target.value);
+          setMenuIndex(0);
+          setMenuDismissed(false);
           grow();
         }}
         onKeyDown={(e) => {
+          if (menuOpen) {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setMenuIndex((i) => (i + 1) % slashMatches.length);
+              return;
+            }
+            if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setMenuIndex((i) => (i - 1 + slashMatches.length) % slashMatches.length);
+              return;
+            }
+            if (e.key === "Enter" || e.key === "Tab") {
+              e.preventDefault();
+              chooseCommand(menuIndex);
+              return;
+            }
+            if (e.key === "Escape") {
+              e.preventDefault();
+              setMenuDismissed(true);
+              return;
+            }
+          }
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             send();
@@ -82,7 +147,7 @@ export function Composer({
         <span className="text-xs text-ink-muted">Demo-assistent</span>
 
         <span className="ml-auto hidden text-[11px] text-ink-muted sm:block">
-          Enter ↵ verzenden · Shift+Enter nieuwe regel
+          Enter ↵ verzenden · Shift+Enter nieuwe regel · / commando&apos;s
         </span>
 
         {busy ? (

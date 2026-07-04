@@ -15,6 +15,7 @@ export type Conversation = {
   id: string;
   title: string;
   pinned: boolean;
+  archived?: boolean;
   createdAt: number;
   updatedAt: number;
   messages: ChatMessage[];
@@ -130,6 +131,19 @@ export function renameConversation(id: string, title: string) {
 
 export function togglePin(id: string) {
   mutate(id, (c) => ({ ...c, pinned: !c.pinned }));
+}
+
+export function toggleArchive(id: string) {
+  mutate(id, (c) => ({ ...c, archived: !c.archived }));
+}
+
+/** Zet een gesprek om naar markdown, voor kopiëren of downloaden. */
+export function conversationToMarkdown(c: Conversation): string {
+  const lines = [`# ${c.title}`, ""];
+  for (const m of c.messages) {
+    lines.push(m.role === "user" ? "**Jij:**" : "**Kompas:**", "", m.content, "");
+  }
+  return lines.join("\n");
 }
 
 export function deleteConversation(id: string) {

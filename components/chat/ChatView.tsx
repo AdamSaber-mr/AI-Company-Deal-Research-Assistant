@@ -2,13 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { answer } from "@/lib/assistant";
+import { useRouter } from "next/navigation";
+import { answer, followUpsFor, sourceFor } from "@/lib/assistant";
 import {
   addMessage,
+  conversationToMarkdown,
+  deleteConversation,
   setFeedback,
+  toggleArchive,
   truncateAfter,
   updateMessage,
   type ChatMessage,
+  type Conversation,
 } from "@/lib/chat";
 import { useConversation } from "@/lib/useChats";
 import { Composer, ComposerDisclaimer } from "./Composer";
@@ -87,6 +92,103 @@ function CopyButton({ text }: { text: string }) {
         </svg>
       )}
     </IconButton>
+  );
+}
+
+function ConversationMenu({ conversation }: { conversation: Conversation }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  const close = () => {
+    setOpen(false);
+    setConfirming(false);
+  };
+
+  const itemClass =
+    "rounded-lg px-3 py-1.5 text-left text-sm text-ink-secondary hover:bg-accent-track/40 hover:text-ink";
+
+  return (
+    <div className="relative ml-auto">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title="Gespreksopties"
+        aria-label="Gespreksopties"
+        className="flex h-7 w-7 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-accent-track/40 hover:text-ink"
+      >
+        <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden>
+          <circle cx="3.5" cy="8" r="1.3" fill="currentColor" />
+          <circle cx="8" cy="8" r="1.3" fill="currentColor" />
+          <circle cx="12.5" cy="8" r="1.3" fill="currentColor" />
+        </svg>
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={close} aria-hidden />
+          <div className="absolute right-0 top-9 z-40 flex w-56 flex-col rounded-xl border border-edge bg-raised p-1 shadow-lg">
+            <button
+              type="button"
+              className={itemClass}
+              onClick={() => {
+                navigator.clipboard.writeText(conversationToMarkdown(conversation));
+                setCopied(true);
+                setTimeout(() => {
+                  setCopied(false);
+                  close();
+                }, 900);
+              }}
+            >
+              {copied ? "Gekopieerd ✓" : "Kopieer gesprek"}
+            </button>
+            <button
+              type="button"
+              className={itemClass}
+              onClick={() => {
+                const blob = new Blob([conversationToMarkdown(conversation)], {
+                  type: "text/markdown",
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${conversation.title.replace(/[^\p{L}\p{N}]+/gu, "-").toLowerCase()}.md`;
+                a.click();
+                URL.revokeObjectURL(url);
+                close();
+              }}
+            >
+              Download als markdown
+            </button>
+            <button
+              type="button"
+              className={itemClass}
+              onClick={() => {
+                toggleArchive(conversation.id);
+                close();
+              }}
+            >
+              {conversation.archived ? "Terugzetten uit archief" : "Archiveren"}
+            </button>
+            <button
+              type="button"
+              className="rounded-lg px-3 py-1.5 text-left text-sm text-critical hover:bg-critical/10"
+              onClick={() => {
+                if (!confirming) {
+                  setConfirming(true);
+                  return;
+                }
+                deleteConversation(conversation.id);
+                router.push("/");
+              }}
+            >
+              {confirming ? "Zeker weten?" : "Verwijderen"}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -196,16 +298,22 @@ function AssistantMessage({
   content,
   streaming,
   isLast,
+  question,
   onRegenerate,
   onFeedback,
+  onFollowUp,
 }: {
   message: ChatMessage;
   content: string;
   streaming: boolean;
   isLast: boolean;
+  question: string | null;
   onRegenerate: () => void;
   onFeedback: (fb: "up" | "down") => void;
+  onFollowUp: (text: string) => void;
 }) {
+  const source = question ? sourceFor(question) : null;
+  const followUps = question ? followUpsFor(question) : [];
   return (
     <div className="group flex gap-3">
       <div className="mt-0.5">
@@ -256,6 +364,30 @@ function AssistantMessage({
                 />
               </svg>
             </IconButton>
+          </div>
+        )}
+
+        {/* Bronlink + follow-up-suggesties, alleen onder het laatste antwoord */}
+        {!streaming && isLast && (source || followUps.length > 0) && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {source && (
+              <Link
+                href={source.href}
+                className="flex items-center gap-1 rounded-full border border-accent/40 bg-accent-track/30 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:border-accent/70"
+              >
+                {source.label} →
+              </Link>
+            )}
+            {followUps.map((followUp) => (
+              <button
+                key={followUp}
+                type="button"
+                onClick={() => onFollowUp(followUp)}
+                className="rounded-full border border-edge bg-surface px-3 py-1.5 text-xs text-ink-secondary transition-colors hover:border-accent/50 hover:text-ink"
+              >
+                {followUp}
+              </button>
+            ))}
           </div>
         )}
       </div>
@@ -421,6 +553,12 @@ export function ChatView({ conversationId }: { conversationId: string }) {
         <div className="flex items-center gap-2.5">
           <AssistantAvatar size={22} />
           <span className="truncate text-sm font-medium">{conversation.title}</span>
+          {conversation.archived && (
+            <span className="shrink-0 rounded-full border border-edge px-2 py-0.5 text-[10px] text-ink-muted">
+              Gearchiveerd
+            </span>
+          )}
+          <ConversationMenu conversation={conversation} />
         </div>
       </div>
 
@@ -439,8 +577,15 @@ export function ChatView({ conversationId }: { conversationId: string }) {
               content={stream?.messageId === message.id ? stream.shown : message.content}
               streaming={stream?.messageId === message.id}
               isLast={i === conversation.messages.length - 1}
+              question={
+                conversation.messages
+                  .slice(0, i)
+                  .reverse()
+                  .find((m) => m.role === "user")?.content ?? null
+              }
               onRegenerate={regenerate}
               onFeedback={(fb) => setFeedback(conversationId, message.id, fb)}
+              onFollowUp={send}
             />
           )
         )}
