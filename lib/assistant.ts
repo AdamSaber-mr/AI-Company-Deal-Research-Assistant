@@ -3,8 +3,12 @@
 // {{chart:revenue}} of {{chart:tickets}} wordt in de chat als grafiek gerenderd.
 
 import {
+  ANCHOR_DATE,
+  longDate,
   revenue90,
+  revenue365,
   tickets90,
+  tickets365,
   lastDays,
   sum,
   periodDelta,
@@ -15,6 +19,8 @@ import {
   ticketCategories,
   alerts,
   briefing,
+  type DayPoint,
+  type Product,
 } from "./data";
 
 function fmtDelta(d: number): string {
@@ -109,10 +115,6 @@ function inventoryAnswer(variant: number): string {
     ],
     variant
   );
-  const rows = inventory
-    .slice(0, 4)
-    .map((p) => `| ${p.name} | ${p.stock} stuks | ${p.daysLeft} dagen |`)
-    .join("\n");
   const list = critical
     .map(
       (p, i) =>
@@ -123,11 +125,7 @@ function inventoryAnswer(variant: number): string {
     .join("\n");
   return `${intro}
 
-**Laagste voorraad eerst:**
-
-| Product | Voorraad | Nog voor |
-| --- | --- | --- |
-${rows}
+{{chart:inventory}}
 
 **Bestellijst:**
 ${list}
@@ -143,19 +141,9 @@ function staffingAnswer(variant: number): string {
     ],
     variant
   );
-  const rows = staffing
-    .map(
-      (d) =>
-        `| ${d.name} | ${d.present} | ${d.planned} | ${
-          d.present >= d.planned ? "op sterkte" : `${d.planned - d.present} te weinig`
-        } |`
-    )
-    .join("\n");
   return `${intro}
 
-| Afdeling | Aanwezig | Gepland | Status |
-| --- | --- | --- | --- |
-${rows}
+{{chart:staffing}}
 
 **Let op:** ${shortages.map((d) => `${d.name} mist ${d.planned - d.present} ${d.planned - d.present === 1 ? "persoon" : "mensen"}`).join(" en ")} — en zaterdag is historisch je drukste dag. Overweeg vandaag nog 1–2 flexkrachten op te roepen voor de bediening.`;
 }
@@ -189,8 +177,9 @@ function capabilities(): string {
 
 - **Omzet** — trends, beste dagen, weekend versus doordeweeks
 - **Klantenservice** — ticketaantallen, pieken en categorieën
-- **Voorraad** — wat er bijna op is en wat je moet bestellen
+- **Voorraad** — wat er bijna op is en wat je moet bestellen, ook per product (*"Hoeveel havermelk heb ik nog?"*)
 - **Personeel** — bezetting per afdeling en roostergaten
+- **Specifieke dagen** — *"Hoe was 19 juni?"* of *"Hoe was het gisteren?"*
 - **Vandaag** — je ochtendbriefing en alle AI-signaleringen op een rij
 
 In deze demo antwoord ik op basis van de voorbeelddata van *Koffiebar De Ronde* — er is geen externe AI-verbinding nodig.`;
@@ -207,11 +196,120 @@ function fallback(): string {
 Stel je vraag gerust anders geformuleerd, dan kijk ik nog een keer.`;
 }
 
+/* ------------------------- dag- en productvragen ------------------------- */
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const MONTHS = [
+  "januari", "februari", "maart", "april", "mei", "juni",
+  "juli", "augustus", "september", "oktober", "november", "december",
+];
+
+const shortDate = new Intl.DateTimeFormat("nl-NL", { day: "numeric", month: "long" });
+
+function findPoint(series: DayPoint[], date: Date): DayPoint | undefined {
+  return series.find(
+    (p) =>
+      p.date.getDate() === date.getDate() &&
+      p.date.getMonth() === date.getMonth() &&
+      p.date.getFullYear() === date.getFullYear()
+  );
+}
+
+/** Herkent "19 juni", "gisteren" of "eergisteren" in een vraag. */
+function parseDay(q: string): Date | null {
+  if (q.includes("eergisteren")) return new Date(ANCHOR_DATE.getTime() - 2 * DAY_MS);
+  if (q.includes("gisteren")) return new Date(ANCHOR_DATE.getTime() - DAY_MS);
+  const m = q.match(
+    /(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)/
+  );
+  if (!m) return null;
+  const day = Number(m[1]);
+  const month = MONTHS.indexOf(m[2]);
+  // Meest recente voorkomen van die dag+maand (data loopt een jaar terug)
+  const inFuture =
+    month > ANCHOR_DATE.getMonth() ||
+    (month === ANCHOR_DATE.getMonth() && day > ANCHOR_DATE.getDate());
+  const year = ANCHOR_DATE.getFullYear() - (inFuture ? 1 : 0);
+  return new Date(year, month, day, 8);
+}
+
+/** Zoekt een product op basis van woorden uit de productnaam. */
+function findProduct(q: string): Product | undefined {
+  return inventory.find((p) =>
+    p.name
+      .toLowerCase()
+      .split(/[^a-zà-ü]+/)
+      .filter((word) => word.length >= 5)
+      .some((word) => q.includes(word))
+  );
+}
+
+function dayAnswer(date: Date): string {
+  const rev = findPoint(revenue365, date);
+  const tick = findPoint(tickets365, date);
+  if (!rev || !tick) {
+    return `Daar heb ik geen data van — mijn reeks loopt van ${longDate.format(
+      revenue365[0].date
+    )} tot ${longDate.format(ANCHOR_DATE)}. Kies een dag binnen die periode.`;
+  }
+
+  const revAvg = sum(lastDays(revenue365, 30)) / 30;
+  const tickAvg = sum(lastDays(tickets365, 30)) / 30;
+  const revVsAvg = Math.round(((rev.value - revAvg) / revAvg) * 100);
+  const weekEarlier = findPoint(revenue365, new Date(date.getTime() - 7 * DAY_MS));
+  const vsWeek =
+    weekEarlier && weekEarlier.value > 0
+      ? Math.round(((rev.value - weekEarlier.value) / weekEarlier.value) * 100)
+      : null;
+  const isWeekend = [0, 6].includes(date.getDay());
+
+  const heading = longDate.format(date);
+  return `### ${heading.charAt(0).toUpperCase()}${heading.slice(1)}
+
+Op ${rev.label} draaide je **${euro.format(rev.value)}** omzet en kwamen er **${tick.value} klantenservice-tickets** binnen.
+
+- Omzet: **${euro.format(rev.value)}** (${fmtDelta(revVsAvg)} t.o.v. je daggemiddelde van de laatste 30 dagen)
+- Tickets: **${tick.value}** (gemiddeld ~${Math.round(tickAvg)} per dag)${
+    vsWeek !== null && weekEarlier
+      ? `\n- Een week eerder (${weekEarlier.label}): ${euro.format(weekEarlier.value)} — dat is ${fmtDelta(vsWeek)} verschil`
+      : ""
+  }${isWeekend ? "\n\nHet was een weekenddag — die liggen bij jou gemiddeld een stuk lager dan doordeweeks." : ""}
+
+Wil je een andere dag zien, of de hele periode in de grafiek?`;
+}
+
+function productAnswer(p: Product): string {
+  const advice = {
+    critical: "**Bestel vandaag nog** — de levertijd is 4 werkdagen, dus dit wordt krap.",
+    serious: "Bestel deze week om zonder stress aangevuld te zijn.",
+    warning: "Nog geen haast, maar zet het op de bestellijst voor volgende week.",
+    good: "Ruim voldoende — geen actie nodig.",
+  }[p.severity];
+  const orderSize = Math.max(0, p.dailySales * 21 - p.stock);
+
+  return `**${p.name}** (${p.sku})
+
+- Voorraad: **${p.stock} stuks**
+- Verkoop: ~**${p.dailySales} per dag**
+- Daarmee kom je nog **${p.daysLeft} dagen** vooruit
+
+${advice}${
+    orderSize > 0
+      ? `\n\nBestel-suggestie: **${orderSize} stuks** — dan zit je weer op zo'n drie weken voorraad.`
+      : ""
+  }
+
+{{chart:inventory}}`;
+}
+
 /* ----------------------------- matching ----------------------------- */
 
 export type Topic =
   | "greeting"
   | "capabilities"
+  | "product"
+  | "day"
   | "tickets"
   | "inventory"
   | "staffing"
@@ -227,6 +325,8 @@ export function classify(question: string): Topic {
     return "greeting";
   }
   if (has("wat kun je", "wat kan je", "wie ben je", "help")) return "capabilities";
+  if (findProduct(q)) return "product";
+  if (parseDay(q)) return "day";
   if (has("klacht", "ticket", "klantenservice", "bezorg")) return "tickets";
   if (has("voorraad", "bestel", "espresso", "bonen", "inkoop", "product")) return "inventory";
   if (has("personeel", "bezetting", "rooster", "medewerker", "ingepland", "bediening", "flexkracht")) {
@@ -240,11 +340,16 @@ export function classify(question: string): Topic {
 }
 
 export function answer(question: string, variant = 0): string {
+  const q = question.toLowerCase();
   switch (classify(question)) {
     case "greeting":
       return greeting();
     case "capabilities":
       return capabilities();
+    case "product":
+      return productAnswer(findProduct(q)!);
+    case "day":
+      return dayAnswer(parseDay(q)!);
     case "tickets":
       return ticketsAnswer(variant);
     case "inventory":
@@ -269,6 +374,16 @@ const DEFAULT_FOLLOW_UPS = [
 ];
 
 const FOLLOW_UPS: Record<Topic, string[]> = {
+  product: [
+    "Wat moet ik vandaag bestellen?",
+    "Wat moet ik vandaag doen?",
+    "Waarom zijn er meer klachten deze week?",
+  ],
+  day: [
+    "Hoe ontwikkelt de omzet zich?",
+    "Hoe was het gisteren?",
+    "Wat moet ik vandaag doen?",
+  ],
   revenue: [
     "Leg de omzet naast de klachtenpiek",
     "Wat moet ik vandaag doen?",
@@ -306,6 +421,8 @@ export function followUpsFor(question: string): string[] {
 export type AnswerSource = { href: string; label: string };
 
 const SOURCES: Partial<Record<Topic, AnswerSource>> = {
+  product: { href: "/voorraad", label: "Bekijk voorraad in het dashboard" },
+  day: { href: "/omzet", label: "Bekijk omzet in het dashboard" },
   revenue: { href: "/omzet", label: "Bekijk omzet in het dashboard" },
   tickets: { href: "/klantenservice", label: "Bekijk klantenservice in het dashboard" },
   inventory: { href: "/voorraad", label: "Bekijk voorraad in het dashboard" },
@@ -315,6 +432,35 @@ const SOURCES: Partial<Record<Topic, AnswerSource>> = {
 
 export function sourceFor(question: string): AnswerSource | null {
   return SOURCES[classify(question)] ?? null;
+}
+
+/** Korte, professionele gesprekstitel per onderwerp (null = gebruik de vraag). */
+export function titleFor(question: string): string | null {
+  const q = question.toLowerCase();
+  switch (classify(question)) {
+    case "product": {
+      const p = findProduct(q)!;
+      const name = p.name.split(" ").filter((w) => !/\d/.test(w)).slice(0, 2).join(" ");
+      return `Voorraad · ${name}`;
+    }
+    case "day":
+      return `Dagdetail · ${shortDate.format(parseDay(q)!)}`;
+    case "revenue":
+      return "Omzet-analyse";
+    case "tickets":
+      return "Klachten & tickets";
+    case "inventory":
+      return "Bestellijst & voorraad";
+    case "staffing":
+      return "Bezetting & rooster";
+    case "today":
+      return "Dagbriefing";
+    case "greeting":
+    case "capabilities":
+      return "Kennismaking met Kompas";
+    default:
+      return null;
+  }
 }
 
 export type SlashCommand = { command: string; label: string; question: string };

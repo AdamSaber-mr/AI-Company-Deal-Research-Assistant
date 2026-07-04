@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { lastDays, revenue90, tickets90 } from "@/lib/data";
+import { inventory, lastDays, revenue90, staffing, tickets90 } from "@/lib/data";
 import { RevenueChart } from "../RevenueChart";
 import { TicketsChart } from "../TicketsChart";
 
@@ -166,7 +166,83 @@ function CodeBlock({ lang, code }: { lang: string; code: string }) {
   );
 }
 
+function InventoryCard() {
+  return (
+    <div className="rounded-xl border border-edge bg-surface p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-sm font-semibold">Voorraad</h3>
+        <span className="text-xs text-ink-muted">dagen tot het op is</span>
+      </div>
+      <ul className="mt-3 flex flex-col gap-3">
+        {inventory.map((p) => (
+          <li key={p.sku} className="flex flex-col gap-1">
+            <div className="flex items-baseline justify-between gap-3 text-sm">
+              <span className="truncate">{p.name}</span>
+              <span
+                className="shrink-0 text-xs text-ink-secondary"
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
+                {p.stock} stuks · {p.daysLeft} dagen
+              </span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-grid">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${Math.min(100, (p.daysLeft / 21) * 100)}%`,
+                  background: `var(--${p.severity})`,
+                }}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function StaffingCard() {
+  return (
+    <div className="rounded-xl border border-edge bg-surface p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-sm font-semibold">Bezetting vandaag</h3>
+        <span className="text-xs text-ink-muted">aanwezig / gepland</span>
+      </div>
+      <ul className="mt-3 flex flex-col gap-3">
+        {staffing.map((d) => {
+          const full = d.present >= d.planned;
+          return (
+            <li key={d.name} className="flex flex-col gap-1">
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span>{d.name}</span>
+                <span
+                  className="shrink-0 text-xs text-ink-secondary"
+                  style={{ fontVariantNumeric: "tabular-nums" }}
+                >
+                  {d.present} / {d.planned} ·{" "}
+                  {full ? "op sterkte" : `${d.planned - d.present} te weinig`}
+                </span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-grid">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${Math.min(100, (d.present / d.planned) * 100)}%`,
+                    background: full ? "var(--good)" : "var(--warning)",
+                  }}
+                />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function ChartEmbed({ kind }: { kind: string }) {
+  if (kind === "inventory") return <InventoryCard />;
+  if (kind === "staffing") return <StaffingCard />;
   if (kind !== "revenue" && kind !== "tickets") return null;
   return (
     <div className="rounded-xl border border-edge bg-surface p-4">

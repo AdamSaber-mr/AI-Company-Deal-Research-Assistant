@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { SUGGESTIONS } from "@/lib/assistant";
+import { SUGGESTIONS, titleFor } from "@/lib/assistant";
 import { createConversation } from "@/lib/chat";
 import { useStoredSettings } from "@/lib/useSettings";
 import { Composer, ComposerDisclaimer } from "./Composer";
@@ -15,7 +15,7 @@ export function ChatWelcome() {
   const handledRef = useRef(false);
 
   const start = (question: string) => {
-    const id = createConversation(question);
+    const id = createConversation(question, titleFor(question));
     router.push(`/chat/${id}`);
   };
 

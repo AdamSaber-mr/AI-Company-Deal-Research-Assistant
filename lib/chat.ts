@@ -70,12 +70,12 @@ function titleFor(question: string): string {
   return clean.length > 48 ? `${clean.slice(0, 47)}…` : clean;
 }
 
-export function createConversation(question: string): string {
+export function createConversation(question: string, title?: string | null): string {
   const id = newId();
   const now = Date.now();
   const conversation: Conversation = {
     id,
-    title: titleFor(question),
+    title: title ?? titleFor(question),
     pinned: false,
     createdAt: now,
     updatedAt: now,
