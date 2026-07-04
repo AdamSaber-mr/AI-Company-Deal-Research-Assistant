@@ -26,7 +26,7 @@ export function AlertsFeed() {
               </p>
               <Link
                 href={`/?vraag=${encodeURIComponent(`Vertel me meer over: ${a.title}`)}`}
-                className="mt-1.5 inline-block text-xs font-medium text-accent hover:underline"
+                className="mt-1.5 inline-block text-xs font-medium text-accent hover:underline print:hidden"
               >
                 Bespreek in de chat →
               </Link>

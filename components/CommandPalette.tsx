@@ -18,6 +18,7 @@ const PAGES: { href: string; label: string }[] = [
   { href: "/voorraad", label: "Voorraad" },
   { href: "/personeel", label: "Personeel" },
   { href: "/signaleringen", label: "Signaleringen" },
+  { href: "/rapport", label: "Weekrapport" },
   { href: "/instellingen", label: "Instellingen" },
 ];
 
