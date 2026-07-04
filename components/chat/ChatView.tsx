@@ -116,6 +116,8 @@ function ConversationMenu({ conversation }: { conversation: Conversation }) {
         onClick={() => setOpen((v) => !v)}
         title="Gespreksopties"
         aria-label="Gespreksopties"
+        aria-expanded={open}
+        aria-haspopup="menu"
         className="flex h-7 w-7 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-accent-track/40 hover:text-ink"
       >
         <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden>
