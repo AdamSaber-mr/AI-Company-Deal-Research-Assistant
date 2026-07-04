@@ -13,6 +13,7 @@ import {
 import { alerts, type Alert, type Severity } from "@/lib/data";
 import { useConversations } from "@/lib/useChats";
 import { CommandPalette } from "./CommandPalette";
+import { NotificationCenter, useReadAlerts } from "./NotificationCenter";
 import { ThemeToggle } from "./ThemeToggle";
 
 type NavItem = {
@@ -84,6 +85,15 @@ const NAV: NavItem[] = [
       </svg>
     ),
   },
+  {
+    href: "/rapport",
+    label: "Weekrapport",
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden>
+        <path d="M4.5 2.5H11l3 3V15a.5.5 0 01-.5.5H4.5A.5.5 0 014 15V3a.5.5 0 01.5-.5zM11 2.5V6h3.5M6.5 9h5M6.5 12h5" {...stroke} />
+      </svg>
+    ),
+  },
 ];
 
 const SETTINGS_ITEM: NavItem = {
@@ -132,8 +142,9 @@ function Logo({ collapsed = false }: { collapsed?: boolean }) {
   );
 }
 
-// Badge per pagina, gekleurd naar de zwaarste melding: urgent = rood,
-// actie nodig = oranje, let op = amber. Goed nieuws krijgt geen badge.
+// Badge per pagina, gekleurd naar de zwaarste ongelezen melding: urgent =
+// rood, actie nodig = oranje, let op = amber. Goed nieuws en gelezen
+// meldingen tellen niet mee.
 const SEVERITY_RANK: Record<Severity, number> = {
   critical: 3,
   serious: 2,
@@ -151,15 +162,18 @@ function badgeFor(items: Alert[]): Badge | null {
   return { count: items.length, severity: top.severity };
 }
 
-const flagged = alerts.filter((a) => a.severity !== "good");
-
-const BADGE_BY_HREF: Record<string, Badge | null> = {
-  "/omzet": badgeFor(flagged.filter((a) => a.area === "omzet")),
-  "/klantenservice": badgeFor(flagged.filter((a) => a.area === "klantenservice")),
-  "/voorraad": badgeFor(flagged.filter((a) => a.area === "voorraad")),
-  "/personeel": badgeFor(flagged.filter((a) => a.area === "personeel")),
-  "/signaleringen": badgeFor(flagged),
-};
+function badgesByHref(readTitles: string[]): Record<string, Badge | null> {
+  const flagged = alerts.filter(
+    (a) => a.severity !== "good" && !readTitles.includes(a.title)
+  );
+  return {
+    "/omzet": badgeFor(flagged.filter((a) => a.area === "omzet")),
+    "/klantenservice": badgeFor(flagged.filter((a) => a.area === "klantenservice")),
+    "/voorraad": badgeFor(flagged.filter((a) => a.area === "voorraad")),
+    "/personeel": badgeFor(flagged.filter((a) => a.area === "personeel")),
+    "/signaleringen": badgeFor(flagged),
+  };
+}
 
 const BADGE_STYLE: Record<Severity, string> = {
   critical: "bg-critical text-white",
@@ -172,12 +186,13 @@ function NavLink({
   item,
   active,
   collapsed = false,
+  badge = null,
 }: {
   item: NavItem;
   active: boolean;
   collapsed?: boolean;
+  badge?: Badge | null;
 }) {
-  const badge = BADGE_BY_HREF[item.href] ?? null;
   const badgeChip = badge && (
     <span
       className={`anim-pop flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none ${BADGE_STYLE[badge.severity]} ${
@@ -299,6 +314,8 @@ function ChatItem({ chat, active }: { chat: Conversation; active: boolean }) {
         type="button"
         onClick={() => setMenuOpen((v) => !v)}
         aria-label={`Opties voor "${chat.title}"`}
+        aria-expanded={menuOpen}
+        aria-haspopup="menu"
         className={`absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-ink-muted transition-opacity hover:bg-accent-track/50 hover:text-ink ${
           menuOpen ? "" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
         }`}
@@ -445,6 +462,8 @@ export function Sidebar() {
   const [query, setQuery] = useState("");
   const { width, resizing, handleProps } = useSidebarWidth();
   const { collapsed, toggle } = useSidebarCollapsed();
+  const readAlerts = useReadAlerts();
+  const badges = badgesByHref(readAlerts);
 
   const q = query.trim().toLowerCase();
   const filtered = q
@@ -462,10 +481,21 @@ export function Sidebar() {
   const [mobileChatsOpen, setMobileChatsOpen] = useState(false);
 
   const desktopNav = NAV.map((item) => (
-    <NavLink key={item.href} item={item} active={pathname === item.href} collapsed={collapsed} />
+    <NavLink
+      key={item.href}
+      item={item}
+      active={pathname === item.href}
+      collapsed={collapsed}
+      badge={badges[item.href]}
+    />
   ));
   const mobileNav = NAV.map((item) => (
-    <NavLink key={item.href} item={item} active={pathname === item.href} />
+    <NavLink
+      key={item.href}
+      item={item}
+      active={pathname === item.href}
+      badge={badges[item.href]}
+    />
   ));
   const settingsLink = (
     <NavLink item={SETTINGS_ITEM} active={pathname === SETTINGS_ITEM.href} />
@@ -474,9 +504,12 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop: vaste sidebar links; breedte sleepbaar, inklapbaar tot icoontjes */}
+      {/* z-40: sticky vormt een eigen stacking context; zonder z-index zouden
+          popovers uit de sidebar (meldingenpanel) klikken verliezen aan de
+          transparante paginawrapper die later in de DOM komt. */}
       <aside
         style={{ width: collapsed ? COLLAPSED_WIDTH : width }}
-        className={`sticky top-0 hidden h-screen shrink-0 flex-col gap-4 border-r border-edge bg-surface py-6 px-3 lg:flex ${
+        className={`sticky top-0 z-40 hidden h-screen shrink-0 flex-col gap-4 border-r border-edge bg-surface py-6 px-3 print:!hidden lg:flex ${
           resizing ? "select-none" : "transition-[width] duration-200 ease-out"
         }`}
       >
@@ -501,6 +534,7 @@ export function Sidebar() {
           }
         >
           <Logo collapsed={collapsed} />
+          <NotificationCenter />
           <button
             type="button"
             onClick={toggle}
@@ -653,10 +687,13 @@ export function Sidebar() {
       <CommandPalette />
 
       {/* Mobiel: logo + horizontale navigatie bovenaan */}
-      <div className="flex flex-col gap-3 border-b border-edge bg-surface px-3 pt-4 pb-2 lg:hidden">
+      <div className="flex flex-col gap-3 border-b border-edge bg-surface px-3 pt-4 pb-2 print:hidden lg:hidden">
         <div className="flex items-center justify-between gap-3">
           <Logo />
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <NotificationCenter align="right" />
+            <ThemeToggle />
+          </div>
         </div>
         <nav className="flex gap-1 overflow-x-auto pb-1" aria-label="Hoofdnavigatie">
           <NavLink
@@ -666,6 +703,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => setMobileChatsOpen((v) => !v)}
+            aria-expanded={mobileChatsOpen}
             className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
               mobileChatsOpen
                 ? "bg-accent-track/70 font-medium text-ink"
