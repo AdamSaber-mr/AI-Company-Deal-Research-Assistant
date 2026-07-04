@@ -7,7 +7,14 @@ import { useSize } from "./useSize";
 const H = 240;
 const PAD = { top: 16, right: 8, bottom: 26, left: 30 };
 
-export function TicketsChart({ points }: { points: DayPoint[] }) {
+export function TicketsChart({
+  points,
+  onSelect,
+}: {
+  points: DayPoint[];
+  /** Klik op een staaf → dagdetail in de pagina. */
+  onSelect?: (point: DayPoint) => void;
+}) {
   const { ref, width } = useSize<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
 
@@ -33,7 +40,15 @@ export function TicketsChart({ points }: { points: DayPoint[] }) {
   return (
     <div ref={ref} className="relative">
       {width > 0 && (
-        <svg width={w} height={H} role="img" aria-label="Tickets per dag" onPointerLeave={() => setHover(null)}>
+        <svg
+          width={w}
+          height={H}
+          role="img"
+          aria-label="Tickets per dag"
+          onPointerLeave={() => setHover(null)}
+          onClick={() => hovered && onSelect?.(hovered)}
+          className={onSelect ? "cursor-pointer" : undefined}
+        >
           {yTicks.map((t) => (
             <g key={t}>
               <line
@@ -127,6 +142,9 @@ export function TicketsChart({ points }: { points: DayPoint[] }) {
             <span className="inline-block h-2 w-2 rounded-[2px]" style={{ background: "var(--accent)" }} />
             {hovered.label}
           </div>
+          {onSelect && (
+            <div className="mt-1 text-[10px] text-ink-muted">Klik voor dagdetail</div>
+          )}
         </div>
       )}
     </div>

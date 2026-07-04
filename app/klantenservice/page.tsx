@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRangeSetting } from "@/lib/useSettings";
 import {
   RANGES,
@@ -9,16 +10,26 @@ import {
   periodDelta,
   number,
   ticketCategories,
+  type DayPoint,
+  type RangeKey,
 } from "@/lib/data";
 import { PageHeader } from "@/components/PageHeader";
 import { RangeFilter } from "@/components/RangeFilter";
 import { StatTile } from "@/components/StatTile";
 import { TicketsChart } from "@/components/TicketsChart";
 import { SeverityIcon } from "@/components/severity";
+import { ExportCsvButton } from "@/components/ExportCsv";
+import { DayDetail } from "@/components/DayDetail";
 
 export default function KlantenservicePage() {
   const [range, setRange] = useRangeSetting();
+  const [selected, setSelected] = useState<DayPoint | null>(null);
   const days = RANGES.find((r) => r.key === range)!.days;
+
+  const changeRange = (key: RangeKey) => {
+    setSelected(null);
+    setRange(key);
+  };
 
   const tickets = lastDays(tickets90, days);
 
@@ -35,7 +46,7 @@ export default function KlantenservicePage() {
         title="Klantenservice"
         subtitle="Binnengekomen tickets en waar ze over gaan."
       />
-      <RangeFilter value={range} onChange={setRange} />
+      <RangeFilter value={range} onChange={changeRange} />
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <StatTile
@@ -57,18 +68,35 @@ export default function KlantenservicePage() {
 
       <div className="grid gap-4 lg:grid-cols-5">
         <section className="rounded-2xl border border-edge bg-surface p-5 sm:p-6 lg:col-span-3">
-          <div className="flex items-baseline justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-sm font-semibold">Tickets per dag</h2>
-            {spike >= 15 && (
-              <span className="flex items-center gap-1.5 text-xs font-medium text-ink-secondary">
-                <SeverityIcon severity="serious" size={13} />
-                +{spike}% deze week
-              </span>
-            )}
+            <div className="flex items-center gap-3">
+              {spike >= 15 && (
+                <span className="flex items-center gap-1.5 text-xs font-medium text-ink-secondary">
+                  <SeverityIcon severity="serious" size={13} />
+                  +{spike}% deze week
+                </span>
+              )}
+              <ExportCsvButton
+                filename={`tickets-${days}-dagen.csv`}
+                header={["datum", "tickets"]}
+                rows={tickets.map((p) => [p.label, p.value])}
+              />
+            </div>
           </div>
           <div className="mt-3">
-            <TicketsChart points={tickets} />
+            <TicketsChart points={tickets} onSelect={setSelected} />
           </div>
+          {selected && (
+            <DayDetail
+              point={selected}
+              series={tickets90}
+              periodAvg={sum(tickets) / days}
+              format={(v) => `${number.format(v)} tickets`}
+              upIsGood={false}
+              onClose={() => setSelected(null)}
+            />
+          )}
         </section>
 
         <section className="rounded-2xl border border-edge bg-surface p-5 sm:p-6 lg:col-span-2">

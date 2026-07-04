@@ -16,7 +16,17 @@ function niceCeil(v: number): number {
   return 10 * mag;
 }
 
-export function RevenueChart({ points }: { points: DayPoint[] }) {
+export function RevenueChart({
+  points,
+  compare,
+  onSelect,
+}: {
+  points: DayPoint[];
+  /** Vorige periode (even lang als points), getekend als stippellijn. */
+  compare?: DayPoint[];
+  /** Klik op een punt → dagdetail in de pagina. */
+  onSelect?: (point: DayPoint) => void;
+}) {
   const { ref, width } = useSize<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
 
@@ -24,7 +34,13 @@ export function RevenueChart({ points }: { points: DayPoint[] }) {
   const innerW = w - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
 
-  const max = niceCeil(Math.max(...points.map((p) => p.value)));
+  const compareAligned = compare && compare.length === points.length ? compare : null;
+  const max = niceCeil(
+    Math.max(
+      ...points.map((p) => p.value),
+      ...(compareAligned ? compareAligned.map((p) => p.value) : [0])
+    )
+  );
   const x = (i: number) => PAD.left + (i / (points.length - 1)) * innerW;
   const y = (v: number) => PAD.top + innerH - (v / max) * innerH;
 
@@ -51,8 +67,10 @@ export function RevenueChart({ points }: { points: DayPoint[] }) {
           height={H}
           onPointerMove={onMove}
           onPointerLeave={() => setHover(null)}
+          onClick={() => hovered && onSelect?.(hovered)}
           role="img"
           aria-label="Omzet per dag"
+          className={onSelect ? "cursor-pointer" : undefined}
         >
           {/* gridlijnen + y-as ticks */}
           {ticks.map((t) => (
@@ -84,6 +102,20 @@ export function RevenueChart({ points }: { points: DayPoint[] }) {
           <text x={PAD.left + innerW} y={H - 8} fontSize="11" fill="var(--ink-muted)" textAnchor="end">
             {points[last].label}
           </text>
+
+          {/* vorige periode als stippellijn */}
+          {compareAligned && (
+            <path
+              d={compareAligned
+                .map((p, i) => `${i ? "L" : "M"}${x(i)},${y(p.value)}`)
+                .join("")}
+              fill="none"
+              stroke="var(--accent-soft)"
+              strokeWidth="1.5"
+              strokeDasharray="4 4"
+              strokeLinejoin="round"
+            />
+          )}
 
           {/* vlakvulling als wash + 2px lijn */}
           <path d={area} fill="var(--accent)" opacity="0.1" />
@@ -133,6 +165,18 @@ export function RevenueChart({ points }: { points: DayPoint[] }) {
             <span className="inline-block h-0.5 w-3 rounded-full" style={{ background: "var(--accent)" }} />
             Omzet · {hovered.label}
           </div>
+          {compareAligned && (
+            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-secondary">
+              <span
+                className="inline-block h-0.5 w-3 rounded-full"
+                style={{ background: "var(--accent-soft)" }}
+              />
+              Vorige periode · {euro.format(compareAligned[hover].value)}
+            </div>
+          )}
+          {onSelect && (
+            <div className="mt-1 text-[10px] text-ink-muted">Klik voor dagdetail</div>
+          )}
         </div>
       )}
     </div>
