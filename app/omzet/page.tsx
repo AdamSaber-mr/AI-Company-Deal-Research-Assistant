@@ -5,6 +5,7 @@ import { useRangeSetting } from "@/lib/useSettings";
 import {
   RANGES,
   revenue90,
+  revenue365,
   lastDays,
   sum,
   periodDelta,
@@ -30,9 +31,8 @@ export default function OmzetPage() {
   const total = sum(revenue);
   const best = revenue.reduce((a, p) => (p.value > a.value ? p : a));
 
-  // Vorige periode van gelijke lengte; bij 90 dagen is er geen data meer vóór.
-  const previous = revenue90.slice(-days * 2, -days);
-  const canCompare = previous.length === days;
+  // Vorige periode van gelijke lengte uit de jaarreeks.
+  const previous = revenue365.slice(-days * 2, -days);
 
   const changeRange = (key: RangeKey) => {
     setSelected(null);
@@ -64,17 +64,8 @@ export default function OmzetPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-semibold">Omzet per dag</h2>
           <div className="flex items-center gap-3">
-            <label
-              className={`flex items-center gap-2 text-xs ${
-                canCompare ? "text-ink-secondary" : "text-ink-muted"
-              }`}
-              title={
-                canCompare
-                  ? undefined
-                  : "Geen data van een eerdere periode beschikbaar bij 90 dagen"
-              }
-            >
-              {canCompare && compareOn && (
+            <label className="flex items-center gap-2 text-xs text-ink-secondary">
+              {compareOn && (
                 <span
                   className="inline-block h-0.5 w-4 rounded-full"
                   style={{
@@ -85,8 +76,8 @@ export default function OmzetPage() {
               )}
               Vergelijk vorige periode
               <Switch
-                checked={compareOn && canCompare}
-                onChange={(v) => canCompare && setCompareOn(v)}
+                checked={compareOn}
+                onChange={setCompareOn}
                 label="Vergelijk met vorige periode"
               />
             </label>
@@ -100,14 +91,14 @@ export default function OmzetPage() {
         <div className="mt-3">
           <RevenueChart
             points={revenue}
-            compare={compareOn && canCompare ? previous : undefined}
+            compare={compareOn ? previous : undefined}
             onSelect={setSelected}
           />
         </div>
         {selected ? (
           <DayDetail
             point={selected}
-            series={revenue90}
+            series={revenue365}
             periodAvg={total / days}
             format={(v) => euro.format(v)}
             onClose={() => setSelected(null)}

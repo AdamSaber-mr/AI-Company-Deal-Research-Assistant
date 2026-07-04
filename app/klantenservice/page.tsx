@@ -5,6 +5,7 @@ import { useRangeSetting } from "@/lib/useSettings";
 import {
   RANGES,
   tickets90,
+  tickets365,
   lastDays,
   sum,
   periodDelta,
@@ -90,7 +91,7 @@ export default function KlantenservicePage() {
           {selected && (
             <DayDetail
               point={selected}
-              series={tickets90}
+              series={tickets365}
               periodAvg={sum(tickets) / days}
               format={(v) => `${number.format(v)} tickets`}
               upIsGood={false}

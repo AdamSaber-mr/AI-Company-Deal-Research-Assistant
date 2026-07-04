@@ -76,9 +76,13 @@ function series(
   return out;
 }
 
-// Omzet: 90 dagen, licht stijgende trend
-export const revenue90 = series(
-  90,
+export function lastDays(points: DayPoint[], days: number): DayPoint[] {
+  return points.slice(-days);
+}
+
+// Omzet: 365 dagen, licht stijgende trend over het jaar
+export const revenue365 = series(
+  365,
   7,
   8400,
   0.62,
@@ -86,14 +90,14 @@ export const revenue90 = series(
   (i, days) => 0.85 + (0.35 * i) / days
 );
 
-// Tickets: 90 dagen, stabiel — met een duidelijke piek in de laatste week (+40%)
-export const tickets90 = series(90, 21, 34, 0.55, 0.3, (i, days) =>
+// Tickets: 365 dagen, stabiel — met een duidelijke piek in de laatste week (+40%)
+export const tickets365 = series(365, 21, 34, 0.55, 0.3, (i, days) =>
   i >= days - 6 ? 1.4 : 1
 );
 
-export function lastDays(points: DayPoint[], days: number): DayPoint[] {
-  return points.slice(-days);
-}
+// Aliassen voor de veelgebruikte laatste 90 dagen
+export const revenue90 = lastDays(revenue365, 90);
+export const tickets90 = lastDays(tickets365, 90);
 
 export function sum(points: DayPoint[]): number {
   return points.reduce((acc, p) => acc + p.value, 0);
