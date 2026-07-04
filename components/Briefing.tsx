@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { briefing, longDate, ANCHOR_DATE } from "@/lib/data";
 import { useStoredSettings } from "@/lib/useSettings";
 
@@ -36,6 +37,13 @@ export function Briefing() {
           </li>
         ))}
       </ol>
+
+      <Link
+        href={`/?vraag=${encodeURIComponent("Wat moet ik vandaag doen?")}`}
+        className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+      >
+        Vraag door in de chat →
+      </Link>
     </section>
   );
 }

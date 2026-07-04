@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { alerts } from "@/lib/data";
 import { SEVERITY, SeverityIcon } from "./severity";
 
@@ -23,6 +24,12 @@ export function AlertsFeed() {
               <p className="mt-1 text-[0.8rem] leading-relaxed text-ink-secondary">
                 {a.detail}
               </p>
+              <Link
+                href={`/?vraag=${encodeURIComponent(`Vertel me meer over: ${a.title}`)}`}
+                className="mt-1.5 inline-block text-xs font-medium text-accent hover:underline"
+              >
+                Bespreek in de chat →
+              </Link>
             </div>
           </li>
         ))}
