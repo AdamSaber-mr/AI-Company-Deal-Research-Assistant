@@ -9,6 +9,8 @@ export type ChatMessage = {
   role: ChatRole;
   content: string;
   feedback?: "up" | "down";
+  /** Door de AI voorgestelde vervolgvragen (alleen bij echte AI-antwoorden). */
+  followUps?: string[];
 };
 
 export type Conversation = {
@@ -106,11 +108,20 @@ export function addMessage(conversationId: string, role: ChatRole, content: stri
   return messageId;
 }
 
-export function updateMessage(conversationId: string, messageId: string, content: string) {
+export function updateMessage(
+  conversationId: string,
+  messageId: string,
+  content: string,
+  followUps?: string[]
+) {
   mutate(conversationId, (c) => ({
     ...c,
     updatedAt: Date.now(),
-    messages: c.messages.map((m) => (m.id === messageId ? { ...m, content } : m)),
+    messages: c.messages.map((m) =>
+      m.id === messageId
+        ? { ...m, content, ...(followUps ? { followUps } : {}) }
+        : m
+    ),
   }));
 }
 

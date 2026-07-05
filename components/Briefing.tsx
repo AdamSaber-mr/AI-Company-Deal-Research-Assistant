@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { briefing, longDate, ANCHOR_DATE } from "@/lib/data";
+import { briefing as demoBriefing, longDate, ANCHOR_DATE } from "@/lib/data";
+import { useAiBriefing } from "@/lib/useAi";
 import { useStoredSettings } from "@/lib/useSettings";
 
 export function Briefing() {
   const { ownerName } = useStoredSettings();
+  // Door Claude geschreven zodra er een API-key is; anders de demo-tekst.
+  const briefing = useAiBriefing() ?? demoBriefing;
 
   return (
     <section className="rounded-2xl border border-edge bg-surface p-6 sm:p-8">

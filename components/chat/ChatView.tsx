@@ -27,6 +27,36 @@ const stroke = {
   strokeLinejoin: "round" as const,
 };
 
+// De AI sluit antwoorden af met "[[vervolg]] vraag | vraag" — dat splitsen we
+// in nette suggestie-chips en het hoort niet in de berichttekst zelf.
+const FOLLOWUP_MARKER = "[[vervolg]]";
+
+function splitFollowUps(text: string): { content: string; followUps?: string[] } {
+  const idx = text.indexOf(FOLLOWUP_MARKER);
+  if (idx === -1) return { content: text.trim() };
+  const followUps = text
+    .slice(idx + FOLLOWUP_MARKER.length)
+    .split("|")
+    .map((s) => s.trim().replace(/^[-–·]\s*/, ""))
+    .filter(Boolean)
+    .slice(0, 3);
+  return {
+    content: text.slice(0, idx).trim(),
+    followUps: followUps.length ? followUps : undefined,
+  };
+}
+
+/** Zichtbare deel tijdens het streamen: de (halve) marker blijft verborgen. */
+function visibleWhileStreaming(text: string): string {
+  const idx = text.indexOf(FOLLOWUP_MARKER);
+  if (idx !== -1) return text.slice(0, idx).trimEnd();
+  const partial = text.lastIndexOf("[[");
+  if (partial !== -1 && text.length - partial < FOLLOWUP_MARKER.length) {
+    return text.slice(0, partial);
+  }
+  return text;
+}
+
 export function AssistantAvatar({ size = 28 }: { size?: number }) {
   return (
     <span
@@ -315,7 +345,10 @@ function AssistantMessage({
   onFollowUp: (text: string) => void;
 }) {
   const source = question ? sourceFor(question) : null;
-  const followUps = question ? followUpsFor(question) : [];
+  // AI-antwoorden dragen hun eigen vervolgvragen; demo-antwoorden gebruiken
+  // de vaste suggesties op basis van de vraag.
+  const followUps =
+    message.followUps ?? (question ? followUpsFor(question) : []);
   return (
     <div className="anim-rise group flex gap-3">
       <div className="mt-0.5">
@@ -533,16 +566,26 @@ export function ChatView({ conversationId }: { conversationId: string }) {
             const { done, value } = await reader.read();
             if (done) break;
             shown += decoder.decode(value, { stream: true });
-            commitRef.current = { messageId, shown };
-            setStream({ messageId, shown });
+            const visible = visibleWhileStreaming(shown);
+            commitRef.current = { messageId, shown: visible };
+            setStream({ messageId, shown: visible });
           }
           abortRef.current = null;
-          finish(messageId, shown.trim() || "*Geen antwoord ontvangen.*");
+          const { content, followUps } = splitFollowUps(shown);
+          updateMessage(
+            conversationRef.id,
+            messageId,
+            content || "*Geen antwoord ontvangen.*",
+            followUps
+          );
+          commitRef.current = null;
+          setStream(null);
+          busyRef.current = false;
         } catch {
           // Afgebroken (stop-knop/gesprekwissel): commit gebeurt daar al.
           if (busyRef.current && commitRef.current?.messageId === messageId) {
             abortRef.current = null;
-            finish(messageId, shown.trim() || "*Gestopt.*");
+            finish(messageId, splitFollowUps(shown).content || "*Gestopt.*");
           }
         }
       } catch {

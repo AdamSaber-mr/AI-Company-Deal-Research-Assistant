@@ -15,7 +15,9 @@ import {
   briefing,
   productCount,
 } from "@/lib/data";
+import { useAiBriefing, useAiReport } from "@/lib/useAi";
 import { useStoredSettings } from "@/lib/useSettings";
+import { Markdown } from "@/components/chat/Markdown";
 import { StatTile } from "@/components/StatTile";
 import { RevenueChart } from "@/components/RevenueChart";
 import { TicketsChart } from "@/components/TicketsChart";
@@ -25,6 +27,9 @@ import { StaffingPanel } from "@/components/StaffingPanel";
 
 export default function RapportPage() {
   const { companyName } = useStoredSettings();
+  // AI-samenvatting zodra er een API-key is; anders de demo-briefing.
+  const aiBriefing = useAiBriefing();
+  const aiReport = useAiReport();
 
   const rev7 = sum(lastDays(revenue365, 7));
   const tick7 = sum(lastDays(tickets365, 7));
@@ -72,20 +77,33 @@ export default function RapportPage() {
       </div>
 
       <section className="rounded-2xl border border-edge bg-surface p-5 sm:p-6 print:break-inside-avoid">
-        <h2 className="text-sm font-semibold">{briefing.headline}</h2>
-        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink-secondary">
-          {briefing.summary}
-        </p>
-        <ol className="mt-3 flex flex-col gap-1.5">
-          {briefing.actions.map((action, i) => (
-            <li key={action} className="flex items-start gap-2.5 text-sm">
-              <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-track text-[0.7rem] font-semibold text-accent">
-                {i + 1}
-              </span>
-              {action}
-            </li>
-          ))}
-        </ol>
+        {aiReport ? (
+          <>
+            <h2 className="text-sm font-semibold">Samenvatting van de week</h2>
+            <div className="mt-2 max-w-3xl text-sm leading-relaxed text-ink-secondary">
+              <Markdown content={aiReport} />
+            </div>
+          </>
+        ) : (
+          <>
+            <h2 className="text-sm font-semibold">
+              {(aiBriefing ?? briefing).headline}
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink-secondary">
+              {(aiBriefing ?? briefing).summary}
+            </p>
+            <ol className="mt-3 flex flex-col gap-1.5">
+              {(aiBriefing ?? briefing).actions.map((action, i) => (
+                <li key={action} className="flex items-start gap-2.5 text-sm">
+                  <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-track text-[0.7rem] font-semibold text-accent">
+                    {i + 1}
+                  </span>
+                  {action}
+                </li>
+              ))}
+            </ol>
+          </>
+        )}
       </section>
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4 print:grid-cols-4 print:break-inside-avoid">
