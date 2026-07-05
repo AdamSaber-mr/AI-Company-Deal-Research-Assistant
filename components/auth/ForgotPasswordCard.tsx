@@ -11,6 +11,7 @@ export function ForgotPasswordCard() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [mailed, setMailed] = useState(false);
   const [resetPath, setResetPath] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
@@ -30,9 +31,10 @@ export function ForgotPasswordCard() {
         setLoading(false);
         return;
       }
-      // Altijd hetzelfde eindscherm — de link is er alleen als het account
-      // bestaat (demo; normaal gaat die per e-mail).
+      // Altijd hetzelfde eindscherm — met mailprovider gaat de link per
+      // e-mail; in de demo tonen we hem direct (alleen als het account bestaat).
       setDone(true);
+      setMailed(Boolean(data.sent));
       setResetPath((data.resetPath as string | undefined) ?? null);
     } catch {
       setError("Geen verbinding. Probeer het opnieuw.");
@@ -60,14 +62,17 @@ export function ForgotPasswordCard() {
           <div className="mt-6 flex flex-col gap-4">
             <div className="rounded-lg border border-edge bg-raised px-3.5 py-3 text-sm text-ink-secondary">
               <p className="font-medium text-ink">
-                Als dit e-mailadres bekend is, is er een herstel-link aangemaakt
+                {mailed
+                  ? "Als dit e-mailadres bekend is, hebben we een herstel-link gemaild"
+                  : "Als dit e-mailadres bekend is, is er een herstel-link aangemaakt"}
               </p>
               <p className="mt-1 text-xs text-ink-muted">
-                In een echte app krijg je deze per e-mail.
-                {resetPath && " In deze demo kun je direct verder:"}
+                {mailed
+                  ? "Check je inbox (en eventueel je spam-map). De link is één uur geldig."
+                  : `In een echte app krijg je deze per e-mail.${resetPath ? " In deze demo kun je direct verder:" : ""}`}
               </p>
             </div>
-            {resetPath && (
+            {!mailed && resetPath && (
               <Link
                 href={resetPath}
                 className="flex items-center justify-center rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
