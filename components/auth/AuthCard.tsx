@@ -42,6 +42,7 @@ export function AuthCard({ mode }: { mode: Mode }) {
   const copy = COPY[mode];
 
   const [name, setName] = useState("");
+  const [company, setCompany] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -58,7 +59,9 @@ export function AuthCard({ mode }: { mode: Mode }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          mode === "register" ? { name, email, password } : { email, password }
+          mode === "register"
+            ? { name, company, email, password }
+            : { email, password }
         ),
       });
       const data = await res.json().catch(() => ({}));
@@ -106,16 +109,28 @@ export function AuthCard({ mode }: { mode: Mode }) {
 
         <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
           {mode === "register" && (
-            <Field label="Naam">
-              <input
-                className={fieldClass}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoComplete="name"
-                placeholder="Adam Saber"
-                required
-              />
-            </Field>
+            <>
+              <Field label="Naam">
+                <input
+                  className={fieldClass}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoComplete="name"
+                  placeholder="Adam Saber"
+                  required
+                />
+              </Field>
+              <Field label="Bedrijfsnaam">
+                <input
+                  className={fieldClass}
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  autoComplete="organization"
+                  placeholder="Koffiebar De Ronde"
+                  required
+                />
+              </Field>
+            </>
           )}
 
           <Field label="E-mailadres">

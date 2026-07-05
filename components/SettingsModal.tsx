@@ -305,22 +305,20 @@ export function SettingsModal() {
                   </span>
                 </Row>
                 {user && (
-                  <Row label="Ingelogd als" hint={user.name}>
+                  <Row label="Naam">
+                    <span className="text-sm text-ink-secondary">{user.name}</span>
+                  </Row>
+                )}
+                {user && (
+                  <Row label="E-mailadres">
                     <span className="text-sm text-ink-secondary">{user.email}</span>
                   </Row>
                 )}
-                <Row label="Bedrijfsnaam">
+                <Row label="Bedrijfsnaam" hint="gebruikt door de app en in de ochtendbriefing">
                   <input
                     className={`${inputClass} w-56`}
                     value={settings.companyName}
                     onChange={(e) => update({ companyName: e.target.value })}
-                  />
-                </Row>
-                <Row label="Jouw naam" hint="wordt gebruikt in de ochtendbriefing">
-                  <input
-                    className={`${inputClass} w-56`}
-                    value={settings.ownerName}
-                    onChange={(e) => update({ ownerName: e.target.value })}
                   />
                 </Row>
               </Group>

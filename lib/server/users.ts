@@ -16,6 +16,7 @@ export type StoredUser = {
   id: string;
   email: string;
   name: string;
+  company: string;
   passwordHash: string; // "salt:hash" (beide hex)
   createdAt: number;
 };
@@ -25,6 +26,7 @@ export type PublicUser = {
   id: string;
   email: string;
   name: string;
+  company: string;
 };
 
 const DATA_DIR = join(process.cwd(), ".data");
@@ -52,7 +54,7 @@ function writeUsers(users: StoredUser[]) {
 }
 
 export function toPublicUser(u: StoredUser): PublicUser {
-  return { id: u.id, email: u.email, name: u.name };
+  return { id: u.id, email: u.email, name: u.name, company: u.company };
 }
 
 /* ------------------------------ wachtwoorden ------------------------------ */
@@ -92,6 +94,7 @@ export class AuthError extends Error {}
 export function createUser(input: {
   email: string;
   name: string;
+  company?: string;
   password: string;
 }): StoredUser {
   const email = normalizeEmail(input.email);
@@ -103,6 +106,7 @@ export function createUser(input: {
     id: randomBytes(12).toString("hex"),
     email,
     name: input.name.trim(),
+    company: input.company?.trim() || "Mijn bedrijf",
     passwordHash: hashPassword(input.password),
     createdAt: Date.now(),
   };

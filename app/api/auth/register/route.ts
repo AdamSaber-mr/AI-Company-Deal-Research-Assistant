@@ -18,8 +18,9 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Ongeldig verzoek." }, { status: 400 });
   }
 
-  const { name, email, password } = (body ?? {}) as {
+  const { name, company, email, password } = (body ?? {}) as {
     name?: string;
+    company?: string;
     email?: string;
     password?: string;
   };
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const user = createUser({ name, email, password });
+    const user = createUser({ name, company, email, password });
     const store = await cookies();
     store.set(
       SESSION_COOKIE,

@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 
-export type CurrentUser = { id: string; email: string; name: string } | null;
+export type CurrentUser = {
+  id: string;
+  email: string;
+  name: string;
+  company: string;
+} | null;
 
 /** Haalt de ingelogde gebruiker op via /api/auth/me (client-side). */
 export function useCurrentUser() {

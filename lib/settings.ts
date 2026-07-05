@@ -1,4 +1,5 @@
 import type { RangeKey } from "./data";
+import { scopedKey } from "./scope";
 
 // Instellingen leven client-side in localStorage (demo). Elke sleutel heeft
 // een default zodat de app ook zonder opgeslagen keuzes werkt.
@@ -31,15 +32,18 @@ export const DEFAULT_SETTINGS: Settings = {
 
 const KEY = "bcc-settings";
 
-// Cache zodat settingsSnapshot() dezelfde object-referentie teruggeeft zolang
-// localStorage niet wijzigt — vereist voor useSyncExternalStore.
+// Cache op (sleutel + raw) zodat settingsSnapshot() een stabiele referentie
+// teruggeeft, maar bij een accountwissel (andere sleutel) opnieuw inleest.
+let cachedKey: string | undefined;
 let cachedRaw: string | null | undefined;
 let cachedSettings: Settings = DEFAULT_SETTINGS;
 
 /** Stabiele snapshot van de opgeslagen instellingen (client-side). */
 export function settingsSnapshot(): Settings {
-  const raw = localStorage.getItem(KEY);
-  if (raw !== cachedRaw) {
+  const key = scopedKey(KEY);
+  const raw = localStorage.getItem(key);
+  if (key !== cachedKey || raw !== cachedRaw) {
+    cachedKey = key;
     cachedRaw = raw;
     try {
       cachedSettings = raw
@@ -52,6 +56,11 @@ export function settingsSnapshot(): Settings {
   return cachedSettings;
 }
 
+/** Bestaat er al een opgeslagen instellingenrecord voor het actieve account? */
+export function hasStoredSettings(): boolean {
+  return localStorage.getItem(scopedKey(KEY)) !== null;
+}
+
 export function saveSettings(settings: Settings) {
-  localStorage.setItem(KEY, JSON.stringify(settings));
+  localStorage.setItem(scopedKey(KEY), JSON.stringify(settings));
 }

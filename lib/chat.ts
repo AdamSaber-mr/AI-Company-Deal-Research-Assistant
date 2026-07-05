@@ -21,15 +21,22 @@ export type Conversation = {
   messages: ChatMessage[];
 };
 
+import { scopedKey, subscribeScope } from "./scope";
+
 const KEY = "bcc-chats";
 const EMPTY: Conversation[] = [];
 
+// Cache op (sleutel + raw) zodat een accountwissel — die de sleutel verandert —
+// gegarandeerd opnieuw inleest.
+let cachedKey: string | undefined;
 let cachedRaw: string | null | undefined;
 let cached: Conversation[] = EMPTY;
 
 export function chatsSnapshot(): Conversation[] {
-  const raw = localStorage.getItem(KEY);
-  if (raw !== cachedRaw) {
+  const key = scopedKey(KEY);
+  const raw = localStorage.getItem(key);
+  if (key !== cachedKey || raw !== cachedRaw) {
+    cachedKey = key;
     cachedRaw = raw;
     try {
       cached = raw ? (JSON.parse(raw) as Conversation[]) : EMPTY;
@@ -46,13 +53,15 @@ const listeners = new Set<() => void>();
 
 export function subscribeChats(listener: () => void) {
   listeners.add(listener);
+  const unsubScope = subscribeScope(listener);
   return () => {
     listeners.delete(listener);
+    unsubScope();
   };
 }
 
 function persist(next: Conversation[]) {
-  localStorage.setItem(KEY, JSON.stringify(next));
+  localStorage.setItem(scopedKey(KEY), JSON.stringify(next));
   listeners.forEach((l) => l());
 }
 
