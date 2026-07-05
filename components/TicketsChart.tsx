@@ -1,9 +1,9 @@
 "use client";
 
-// Tickets als lollipop-tijdlijn: een dun steeltje met een bol per dag.
-// Luchtig en direct leesbaar (tijd van links naar rechts), en bewust een
-// ander karakter dan de vloeiende omzetlijn. Piekdagen — opvallend boven het
-// periodegemiddelde — kleuren amber zodat je meteen ziet wáár het druk was.
+// Tickets als dikke lollipop-tijdlijn: een stevige afgeronde steel met een
+// bol erop. Bij langere periodes bundelen we dagen (30 dagen → per 2 dagen,
+// 90 dagen → per week) zodat er minder, veel dikkere lollipops staan — direct
+// leesbaar. Piekmomenten kleuren amber.
 
 import { useState } from "react";
 import type { DayPoint } from "@/lib/data";
@@ -15,15 +15,44 @@ import { useSize } from "./useSize";
 const H = 240;
 const PAD = { top: 18, right: 10, bottom: 28, left: 10 };
 
-// Dagen die zoveel boven het periodegemiddelde liggen, markeren we als piekdag.
+// Dagen die zoveel boven het periodegemiddelde liggen, markeren we als piek.
 const SPIKE_THRESHOLD = 1.3;
+
+type Bucket = {
+  label: string;
+  value: number; // totaal tickets in de bucket
+  days: number;
+  peak: DayPoint; // drukste dag — doel van de dagdetail-klik
+  spike: boolean;
+};
+
+// Bundel de dagen tot maximaal ~16 lollipops: 1, 2 of 7 dagen per stuk.
+function bucketize(points: DayPoint[], avg: number): Bucket[] {
+  const size = points.length <= 16 ? 1 : points.length <= 42 ? 2 : 7;
+  const buckets: Bucket[] = [];
+  for (let start = 0; start < points.length; start += size) {
+    const slice = points.slice(start, start + size);
+    const peak = slice.reduce((a, b) => (b.value > a.value ? b : a));
+    buckets.push({
+      label:
+        slice.length === 1
+          ? slice[0].label
+          : `${slice[0].label} – ${slice[slice.length - 1].label}`,
+      value: slice.reduce((a, p) => a + p.value, 0),
+      days: slice.length,
+      peak,
+      spike: peak.value >= avg * SPIKE_THRESHOLD,
+    });
+  }
+  return buckets;
+}
 
 export function TicketsChart({
   points,
   onSelect,
 }: {
   points: DayPoint[];
-  /** Klik op een dag → dagdetail in de pagina. */
+  /** Klik op een lollipop → dagdetail van de drukste dag erin. */
   onSelect?: (point: DayPoint) => void;
 }) {
   const { ref, width } = useSize<HTMLDivElement>();
@@ -34,34 +63,42 @@ export function TicketsChart({
   const innerH = H - PAD.top - PAD.bottom;
 
   const values = points.map((p) => p.value);
-  const max = Math.max(...values) * 1.15;
   const avg = values.reduce((a, v) => a + v, 0) / (values.length || 1);
-  const isSpike = (v: number) => v >= avg * SPIKE_THRESHOLD;
-  const spikes = values.filter(isSpike).length;
+  const total = values.reduce((a, v) => a + v, 0);
+  const spikeDays = values.filter((v) => v >= avg * SPIKE_THRESHOLD).length;
 
-  const band = innerW / points.length;
+  const buckets = bucketize(points, avg);
+  const n = buckets.length;
+  const max = Math.max(...buckets.map((b) => b.value)) * 1.12;
+
+  const band = innerW / n;
   const x = (i: number) => PAD.left + i * band + band / 2;
   const y = (v: number) => PAD.top + innerH - (v / max) * innerH;
   const baseline = PAD.top + innerH;
 
-  // Maten schalen mee met de dichtheid: luchtig bij 7 dagen, fijn bij 90.
-  const dotR = Math.max(2.5, Math.min(5.5, band * 0.24));
-  const stemW = Math.max(1.5, Math.min(3, band * 0.11));
+  // Dik en stevig: de steel vult een flink deel van de band.
+  const stemW = Math.max(8, Math.min(22, band * 0.42));
+  const dotR = stemW * 0.78;
 
-  const xTicks = tickIndices(points.length, 5);
-  const last = points.length - 1;
+  const xTicks = tickIndices(n, Math.min(5, n));
+  const last = n - 1;
 
   // Kolomindex rechtstreeks uit de muispositie, zodat de klik ook zonder
   // voorafgaande hover werkt (touch).
   const indexAt = (e: { clientX: number; currentTarget: SVGSVGElement }) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const px = e.clientX - rect.left - PAD.left;
-    return Math.max(0, Math.min(points.length - 1, Math.floor(px / band)));
+    return Math.max(0, Math.min(n - 1, Math.floor(px / band)));
   };
 
-  const hovered = hover !== null ? points[hover] : null;
-  const avgDelta = hovered ? Math.round(((hovered.value - avg) / avg) * 100) : null;
-  const total = values.reduce((a, v) => a + v, 0);
+  const hovered = hover !== null ? buckets[hover] : null;
+  // Delta t.o.v. het gemiddelde over hetzelfde aantal dagen.
+  const hoverDelta = hovered
+    ? Math.round(((hovered.value - avg * hovered.days) / (avg * hovered.days)) * 100)
+    : null;
+
+  const unitLabel =
+    buckets[0].days === 1 ? "per dag" : buckets[0].days === 2 ? "per 2 dagen" : "per week";
 
   return (
     <div ref={ref} className="relative">
@@ -76,20 +113,20 @@ export function TicketsChart({
         {hovered ? (
           <span className="flex items-center gap-2 text-xs text-ink-muted">
             tickets · {hovered.label}
-            {avgDelta !== null && <DeltaPill delta={avgDelta} upIsGood={false} />}
+            {hoverDelta !== null && <DeltaPill delta={hoverDelta} upIsGood={false} />}
             <span className="hidden sm:inline">vs gemiddelde</span>
             {onSelect && <span className="hidden sm:inline">· klik voor dagdetail</span>}
           </span>
         ) : (
           <span className="flex items-center gap-2 text-xs text-ink-muted">
-            tickets · afgelopen {points.length} dagen
-            {spikes > 0 && (
+            tickets · afgelopen {points.length} dagen · {unitLabel}
+            {spikeDays > 0 && (
               <span className="flex items-center gap-1.5">
                 <span
                   className="inline-block h-2 w-2 rounded-full"
                   style={{ background: "var(--serious)" }}
                 />
-                {spikes} {spikes === 1 ? "piekdag" : "piekdagen"}
+                {spikeDays} {spikeDays === 1 ? "piekdag" : "piekdagen"}
               </span>
             )}
           </span>
@@ -101,24 +138,12 @@ export function TicketsChart({
           width={w}
           height={H}
           role="img"
-          aria-label="Tickets per dag"
+          aria-label={`Tickets ${unitLabel}`}
           onPointerMove={(e) => setHover(indexAt(e))}
           onPointerLeave={() => setHover(null)}
-          onClick={(e) => onSelect?.(points[indexAt(e)])}
+          onClick={(e) => onSelect?.(buckets[indexAt(e)].peak)}
           className={onSelect ? "cursor-pointer" : undefined}
         >
-          {/* referentielijn: periodegemiddelde — subtiel, geen grid */}
-          <line
-            x1={PAD.left}
-            x2={PAD.left + innerW}
-            y1={y(avg)}
-            y2={y(avg)}
-            stroke="var(--baseline)"
-            strokeWidth="1"
-            strokeDasharray="2 5"
-            strokeLinecap="round"
-          />
-
           {/* basislijn */}
           <line
             x1={PAD.left}
@@ -129,60 +154,58 @@ export function TicketsChart({
             strokeWidth="1"
           />
 
-          {/* steeltjes groeien vanaf de basislijn */}
+          {/* stelen groeien vanaf de basislijn */}
           <g
-            key={`stems-${points.length}`}
+            key={`stems-${n}`}
             className="anim-grow"
             style={{ transformOrigin: `0px ${baseline}px` }}
           >
-            {points.map((p, i) => {
-              const spike = isSpike(p.value);
+            {buckets.map((b, i) => {
               const active = hover === i;
               const dim = hover !== null && !active;
               return (
                 <line
-                  key={p.date.getTime()}
+                  key={b.label}
                   x1={x(i)}
                   x2={x(i)}
                   y1={baseline}
-                  y2={y(p.value) + dotR}
-                  stroke={spike ? "var(--serious)" : "var(--accent)"}
+                  y2={y(b.value) + dotR * 0.4}
+                  stroke={b.spike ? "var(--serious)" : "var(--accent)"}
                   strokeWidth={stemW}
                   strokeLinecap="round"
-                  opacity={dim ? 0.18 : spike ? 0.55 : 0.35}
+                  opacity={dim ? 0.25 : b.spike ? 0.8 : 0.55}
                   style={{ transition: "opacity 0.15s ease" }}
                 />
               );
             })}
           </g>
 
-          {/* bollen op de waarde, ná het groeien van de steeltjes */}
+          {/* bollen op de waarde, ná het groeien van de stelen */}
           <g
-            key={`dots-${points.length}`}
+            key={`dots-${n}`}
             className="anim-fade"
             style={{ animationDelay: "0.45s" }}
           >
-            {points.map((p, i) => {
-              const spike = isSpike(p.value);
+            {buckets.map((b, i) => {
               const active = hover === i;
               const dim = hover !== null && !active;
               return (
                 <circle
-                  key={p.date.getTime()}
+                  key={b.label}
                   cx={x(i)}
-                  cy={y(p.value)}
-                  r={active ? dotR + 1.5 : dotR}
-                  fill={spike ? "var(--serious)" : "var(--accent)"}
+                  cy={y(b.value)}
+                  r={active ? dotR + 2 : dotR}
+                  fill={b.spike ? "var(--serious)" : "var(--accent)"}
                   stroke="var(--surface)"
-                  strokeWidth={active ? 2 : 1.25}
-                  opacity={dim ? 0.35 : 1}
-                  style={{ transition: "opacity 0.15s ease, r 0.15s ease" }}
+                  strokeWidth="2.5"
+                  opacity={dim ? 0.4 : 1}
+                  style={{ transition: "opacity 0.15s ease" }}
                 />
               );
             })}
           </g>
 
-          {/* x-as: gelijkmatig verdeelde datumlabels */}
+          {/* x-as: gelijkmatig verdeelde labels (eerste dag van de bucket) */}
           {xTicks.map((i) => (
             <text
               key={i}
@@ -192,7 +215,7 @@ export function TicketsChart({
               fill="var(--ink-muted)"
               textAnchor={i === 0 ? "start" : i === last ? "end" : "middle"}
             >
-              {points[i].label}
+              {buckets[i].label.split(" – ")[0]}
             </text>
           ))}
         </svg>
