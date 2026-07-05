@@ -11,6 +11,25 @@ const stroke = {
   strokeLinejoin: "round" as const,
 };
 
+// Draait de chat op echte AI (Claude) of op de demo-assistent? Eén keer per
+// paginalading opvragen; module-cache voorkomt herhaalde calls.
+let aiStatusCache: boolean | null = null;
+
+function useAiStatus(): boolean {
+  const [ai, setAi] = useState(aiStatusCache ?? false);
+  useEffect(() => {
+    if (aiStatusCache !== null) return;
+    fetch("/api/chat")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        aiStatusCache = Boolean(d?.ai);
+        setAi(aiStatusCache);
+      })
+      .catch(() => {});
+  }, []);
+  return ai;
+}
+
 export function Composer({
   onSend,
   busy = false,
@@ -25,6 +44,7 @@ export function Composer({
   placeholder?: string;
 }) {
   const [text, setText] = useState("");
+  const ai = useAiStatus();
   const [menuIndex, setMenuIndex] = useState(0);
   const [menuDismissed, setMenuDismissed] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -144,7 +164,9 @@ export function Composer({
           </svg>
         </button>
 
-        <span className="text-xs text-ink-muted">Demo-assistent</span>
+        <span className="text-xs text-ink-muted">
+          {ai ? "Claude" : "Demo-assistent"}
+        </span>
 
         <span className="ml-auto hidden text-[11px] text-ink-muted sm:block">
           Enter ↵ verzenden · Shift+Enter nieuwe regel · / commando&apos;s

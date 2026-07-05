@@ -407,6 +407,7 @@ export function ChatView({ conversationId }: { conversationId: string }) {
   const busyRef = useRef(false);
   const timersRef = useRef<{ timeout?: number; interval?: number }>({});
   const commitRef = useRef<{ messageId: string; shown: string } | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const atBottomRef = useRef(true);
 
   const busy = thinking || stream !== null;
@@ -433,6 +434,8 @@ export function ChatView({ conversationId }: { conversationId: string }) {
   useEffect(() => {
     return () => {
       stopTimers();
+      abortRef.current?.abort();
+      abortRef.current = null;
       const partial = commitRef.current;
       if (partial && partial.shown) {
         updateMessage(conversationId, partial.messageId, partial.shown);
@@ -440,44 +443,114 @@ export function ChatView({ conversationId }: { conversationId: string }) {
       }
       busyRef.current = false;
     };
-     
+
   }, [conversationId]);
 
-  // Onbeantwoorde gebruikersvraag → antwoord genereren met streaming-effect.
+  // Onbeantwoorde gebruikersvraag → antwoord genereren. Eerst wordt de echte
+  // AI geprobeerd (/api/chat streamt Claude); zonder API-key of bij een fout
+  // valt dit terug op de ingebouwde demo-assistent met typanimatie.
   // Geen cleanup hier: een re-run (door de eigen store-writes) mag de lopende
-  // timers niet doden; opruimen gebeurt in het reset-effect hierboven.
+  // stream niet doden; opruimen gebeurt in het reset-effect hierboven.
   useEffect(() => {
     if (!conversation || !lastMessage || lastMessage.role !== "user") return;
     if (busyRef.current) return;
     busyRef.current = true;
     setThinking(true);
 
-    const full = answer(lastMessage.content, Math.floor(Math.random() * 4));
-    const tokens = full.match(/\S+\s*/g) ?? [full];
+    const conversationRef = conversation;
 
-    timersRef.current.timeout = window.setTimeout(() => {
-      setThinking(false);
-      const messageId = addMessage(conversation.id, "assistant", "");
-      let shown = "";
-      let index = 0;
-      commitRef.current = { messageId, shown: "" };
-      setStream({ messageId, shown: "" });
+    const finish = (messageId: string, content: string) => {
+      updateMessage(conversationRef.id, messageId, content);
+      commitRef.current = null;
+      setStream(null);
+      busyRef.current = false;
+    };
 
-      timersRef.current.interval = window.setInterval(() => {
-        shown += tokens[index] ?? "";
-        index++;
-        if (index >= tokens.length) {
-          stopTimers();
-          updateMessage(conversation.id, messageId, full);
-          commitRef.current = null;
-          setStream(null);
-          busyRef.current = false;
-        } else {
-          commitRef.current = { messageId, shown };
-          setStream({ messageId, shown });
+    // Fallback: demo-assistent met typanimatie (zoals voorheen).
+    const startDemoAnswer = () => {
+      const full = answer(lastMessage.content, Math.floor(Math.random() * 4));
+      const tokens = full.match(/\S+\s*/g) ?? [full];
+
+      timersRef.current.timeout = window.setTimeout(() => {
+        setThinking(false);
+        const messageId = addMessage(conversationRef.id, "assistant", "");
+        let shown = "";
+        let index = 0;
+        commitRef.current = { messageId, shown: "" };
+        setStream({ messageId, shown: "" });
+
+        timersRef.current.interval = window.setInterval(() => {
+          shown += tokens[index] ?? "";
+          index++;
+          if (index >= tokens.length) {
+            stopTimers();
+            finish(messageId, full);
+          } else {
+            commitRef.current = { messageId, shown };
+            setStream({ messageId, shown });
+          }
+        }, 22);
+      }, 600);
+    };
+
+    (async () => {
+      try {
+        const controller = new AbortController();
+        abortRef.current = controller;
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            messages: conversationRef.messages.map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
+          }),
+        });
+
+        const isJson = (res.headers.get("content-type") ?? "").includes(
+          "application/json"
+        );
+        if (!res.ok || isJson || !res.body) {
+          // Geen API-key (fallback) of fout → demo-assistent.
+          abortRef.current = null;
+          startDemoAnswer();
+          return;
         }
-      }, 22);
-    }, 600);
+
+        // Echte AI: chunks direct in het gesprek streamen.
+        setThinking(false);
+        const messageId = addMessage(conversationRef.id, "assistant", "");
+        commitRef.current = { messageId, shown: "" };
+        setStream({ messageId, shown: "" });
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let shown = "";
+        try {
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            shown += decoder.decode(value, { stream: true });
+            commitRef.current = { messageId, shown };
+            setStream({ messageId, shown });
+          }
+          abortRef.current = null;
+          finish(messageId, shown.trim() || "*Geen antwoord ontvangen.*");
+        } catch {
+          // Afgebroken (stop-knop/gesprekwissel): commit gebeurt daar al.
+          if (busyRef.current && commitRef.current?.messageId === messageId) {
+            abortRef.current = null;
+            finish(messageId, shown.trim() || "*Gestopt.*");
+          }
+        }
+      } catch {
+        // Netwerkfout vóór de stream begon → demo-assistent, tenzij gestopt.
+        abortRef.current = null;
+        if (busyRef.current && !commitRef.current) startDemoAnswer();
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation?.id, lastMessage?.id, lastMessage?.content]);
 
@@ -506,6 +579,8 @@ export function ChatView({ conversationId }: { conversationId: string }) {
 
   const stop = () => {
     stopTimers();
+    abortRef.current?.abort();
+    abortRef.current = null;
     setThinking(false);
     const partial = commitRef.current;
     if (partial) {
