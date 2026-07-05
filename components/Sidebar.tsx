@@ -199,6 +199,52 @@ const menuIcon = {
   strokeLinejoin: "round" as const,
 };
 
+// Mobiel: avatar in de header opent de instellingen (profiel).
+function MobileAccountButton() {
+  const { user } = useCurrentUser();
+  const settings = useStoredSettings();
+  const name = user?.name?.trim() || settings.ownerName?.trim() || "Gebruiker";
+  return (
+    <button
+      type="button"
+      onClick={() => openSettings()}
+      aria-label={`${name} · Instellingen`}
+      title={name}
+      className="rounded-full transition-opacity hover:opacity-80"
+    >
+      <Avatar name={name} src={user?.avatar} size={30} />
+    </button>
+  );
+}
+
+// Mobiel: uitloggen als laatste item in de horizontale navigatie.
+function MobileLogoutButton() {
+  const router = useRouter();
+  const logout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      /* ook bij netwerkfout doorsturen naar login */
+    }
+    router.push("/login");
+    router.refresh();
+  };
+  return (
+    <button
+      type="button"
+      onClick={logout}
+      className="flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-ink-secondary transition-colors hover:bg-accent-track/40 hover:text-ink"
+    >
+      <span className="text-ink-muted">
+        <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden>
+          <path d="M11.5 12.5l3-3.5-3-3.5M14 9H6.5M8.5 2.5H4.2a.7.7 0 00-.7.7v11.6a.7.7 0 00.7.7h4.3" {...stroke} />
+        </svg>
+      </span>
+      <span className="whitespace-nowrap">Uitloggen</span>
+    </button>
+  );
+}
+
 // Accountrij onderaan: avatar + naam + bedrijf. Klik opent een menu-popover
 // (zoals Claude). Klapt in tot alleen de avatar; het menu blijft clean bij
 // elke sidebar-breedte omdat het los boven de rij zweeft.
@@ -863,11 +909,12 @@ export function Sidebar() {
       <div className="flex flex-col gap-3 border-b border-edge bg-surface px-3 pt-4 pb-2 print:hidden lg:hidden">
         <div className="flex items-center justify-between gap-3">
           <Wordmark />
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <IconButton onClick={openCommandPalette} label="Zoeken">
               {SEARCH_ICON}
             </IconButton>
             <NotificationCenter align="right" />
+            <MobileAccountButton />
           </div>
         </div>
         <nav className="flex gap-1 overflow-x-auto pb-1" aria-label="Hoofdnavigatie">
@@ -905,6 +952,7 @@ export function Sidebar() {
             <span className="text-ink-muted">{SETTINGS_ITEM.icon}</span>
             <span className="whitespace-nowrap">{SETTINGS_ITEM.label}</span>
           </button>
+          <MobileLogoutButton />
         </nav>
 
         {mobileChatsOpen && (
