@@ -35,7 +35,7 @@ export function notifyScope() {
 }
 
 // Sleutels van vóór de per-account scheiding (ongescoopt).
-const LEGACY_BASES = ["bcc-chats", "bcc-settings"];
+const LEGACY_BASES = ["bcc-chats", "bcc-settings", "bcc-read-alerts"];
 
 /**
  * Eenmalige migratie: data van vóór de account-scheiding wordt geclaimd door
