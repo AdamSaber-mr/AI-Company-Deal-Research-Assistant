@@ -1,8 +1,15 @@
 import type { NextRequest } from "next/server";
 import { createPasswordReset } from "@/lib/server/users";
+import { lockedSeconds, recordAttempt } from "@/lib/server/ratelimit";
 
-// In een echte app mailen we de link. In deze lokale demo sturen we 'm terug
-// zodat je 'm meteen kunt gebruiken.
+// Max 3 herstel-aanvragen per e-mailadres per kwartier.
+const RESET_MAX = 3;
+const RESET_WINDOW_MS = 15 * 60 * 1000;
+
+// Antwoordt altijd 200 met dezelfde melding, of het adres nu bestaat of niet —
+// zo valt niet af te leiden welke e-mailadressen een account hebben. In een
+// echte app gaat de link per mail; in deze demo geven we hem terug (alleen
+// als het account bestaat) zodat je direct verder kunt.
 export async function POST(request: NextRequest) {
   let body: unknown;
   try {
@@ -16,13 +23,22 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Vul je e-mailadres in." }, { status: 400 });
   }
 
-  const token = createPasswordReset(email);
-  if (!token) {
+  const key = `reset:${email.trim().toLowerCase()}`;
+  const wait = lockedSeconds(key, RESET_MAX, RESET_WINDOW_MS);
+  if (wait > 0) {
     return Response.json(
-      { error: "Geen account met dit e-mailadres." },
-      { status: 404 }
+      {
+        error: `Te veel aanvragen. Probeer het over ${Math.ceil(wait / 60)} minuten opnieuw.`,
+      },
+      { status: 429 }
     );
   }
+  recordAttempt(key);
 
-  return Response.json({ resetPath: `/wachtwoord-herstellen?token=${token}` });
+  const token = createPasswordReset(email);
+  return Response.json({
+    message:
+      "Als dit e-mailadres bekend is, is er een herstel-link aangemaakt.",
+    ...(token ? { resetPath: `/wachtwoord-herstellen?token=${token}` } : {}),
+  });
 }
