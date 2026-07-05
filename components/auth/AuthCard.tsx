@@ -179,6 +179,15 @@ export function AuthCard({ mode }: { mode: Mode }) {
             </div>
           </Field>
 
+          {mode === "login" && (
+            <Link
+              href="/wachtwoord-vergeten"
+              className="-mt-1 self-end text-xs font-medium text-ink-muted hover:text-ink"
+            >
+              Wachtwoord vergeten?
+            </Link>
+          )}
+
           <button
             type="submit"
             disabled={loading}

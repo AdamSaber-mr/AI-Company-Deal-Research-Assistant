@@ -31,6 +31,8 @@ export type PublicUser = {
 
 const DATA_DIR = join(process.cwd(), ".data");
 const USERS_FILE = join(DATA_DIR, "users.json");
+const RESETS_FILE = join(DATA_DIR, "resets.json");
+const RESET_TTL_MS = 60 * 60 * 1000; // herstel-link 1 uur geldig
 
 function ensureDir() {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
@@ -123,4 +125,54 @@ export function verifyCredentials(
   const user = getUserByEmail(email);
   if (!user) return null;
   return verifyPassword(password, user.passwordHash) ? user : null;
+}
+
+/* --------------------------- wachtwoord herstellen --------------------------- */
+
+type Reset = { token: string; userId: string; exp: number };
+
+function readResets(): Reset[] {
+  ensureDir();
+  if (!existsSync(RESETS_FILE)) return [];
+  try {
+    const parsed = JSON.parse(readFileSync(RESETS_FILE, "utf8"));
+    return Array.isArray(parsed) ? (parsed as Reset[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeResets(resets: Reset[]) {
+  ensureDir();
+  writeFileSync(RESETS_FILE, JSON.stringify(resets, null, 2), "utf8");
+}
+
+/** Maakt een herstel-token voor het e-mailadres; null als het niet bestaat. */
+export function createPasswordReset(email: string): string | null {
+  const user = getUserByEmail(email);
+  if (!user) return null;
+  const token = randomBytes(24).toString("hex");
+  const active = readResets().filter((r) => r.exp > Date.now());
+  active.push({ token, userId: user.id, exp: Date.now() + RESET_TTL_MS });
+  writeResets(active);
+  return token;
+}
+
+/** Wisselt een geldig token in voor de bijbehorende gebruikers-id (eenmalig). */
+export function consumePasswordReset(token: string): string | null {
+  const resets = readResets();
+  const found = resets.find((r) => r.token === token && r.exp > Date.now());
+  if (!found) return null;
+  writeResets(resets.filter((r) => r.token !== token));
+  return found.userId;
+}
+
+/** Zet een nieuw wachtwoord voor de gebruiker. */
+export function updateUserPassword(userId: string, password: string): boolean {
+  const users = readUsers();
+  const user = users.find((u) => u.id === userId);
+  if (!user) return false;
+  user.passwordHash = hashPassword(password);
+  writeUsers(users);
+  return true;
 }
