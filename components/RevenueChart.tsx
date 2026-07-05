@@ -6,8 +6,37 @@ import { euro } from "@/lib/data";
 import { monotonePath, tickIndices } from "./chart-utils";
 import { useSize } from "./useSize";
 
-const H = 260;
-const PAD = { top: 20, right: 76, bottom: 28, left: 10 };
+const H = 240;
+const PAD = { top: 16, right: 12, bottom: 28, left: 10 };
+
+/** Delta-pill zoals Revolut: kleine capsule met percentage. */
+export function DeltaPill({ delta, upIsGood = true }: { delta: number; upIsGood?: boolean }) {
+  const good = delta >= 0 === upIsGood;
+  const tone = good ? "var(--delta-good)" : "var(--delta-bad)";
+  return (
+    <span
+      className="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+      style={{
+        color: tone,
+        background: "color-mix(in srgb, currentColor 12%, transparent)",
+        fontVariantNumeric: "tabular-nums",
+      }}
+    >
+      <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden>
+        <path
+          d={delta >= 0 ? "M5 1.5v7M2 4.5l3-3 3 3" : "M5 1.5v7M2 5.5l3 3 3-3"}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      {delta >= 0 ? "+" : ""}
+      {delta.toLocaleString("nl-NL")}%
+    </span>
+  );
+}
 
 function niceCeil(v: number): number {
   const mag = 10 ** Math.floor(Math.log10(v));
@@ -70,8 +99,45 @@ export function RevenueChart({
       ? Math.round(((hovered.value - prevDay.value) / prevDay.value) * 100)
       : null;
 
+  // Kop boven de grafiek (Revolut-patroon): groot bedrag dat live meebeweegt
+  // met de muis; zonder hover het periodetotaal met delta t.o.v. de vorige
+  // periode. Vervangt de zwevende tooltip.
+  const total = points.reduce((a, p) => a + p.value, 0);
+  const compareTotal = compareAligned
+    ? compareAligned.reduce((a, p) => a + p.value, 0)
+    : null;
+  const periodPct =
+    compareTotal && compareTotal > 0
+      ? Math.round(((total - compareTotal) / compareTotal) * 100)
+      : null;
+
   return (
     <div ref={ref} className="relative">
+      <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 px-1">
+        <span
+          className="text-[1.6rem] font-semibold leading-none tracking-tight"
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          {euro.format(hovered ? hovered.value : total)}
+        </span>
+        {hovered ? (
+          <span className="flex items-center gap-2 text-xs text-ink-muted">
+            {hovered.label}
+            {dayDelta !== null && <DeltaPill delta={dayDelta} />}
+            {compareAligned && hover !== null && (
+              <span className="text-ink-muted">
+                vorige periode {euro.format(compareAligned[hover].value)}
+              </span>
+            )}
+            {onSelect && <span className="hidden sm:inline">· klik voor dagdetail</span>}
+          </span>
+        ) : (
+          <span className="flex items-center gap-2 text-xs text-ink-muted">
+            totaal · afgelopen {points.length} dagen
+            {periodPct !== null && <DeltaPill delta={periodPct} />}
+          </span>
+        )}
+      </div>
       {width > 0 && (
         <svg
           width={w}
@@ -157,67 +223,12 @@ export function RevenueChart({
             />
           )}
 
-          {/* eindpunt met surface-ring + direct label, ná het tekenen van de lijn */}
+          {/* eindpunt met surface-ring, ná het tekenen van de lijn (de waarde
+              staat groot in de kop, dus geen tekstlabel meer nodig) */}
           <g key={`end-${points.length}`} className="anim-fade" style={{ animationDelay: "0.8s" }}>
             <circle cx={x(last)} cy={y(points[last].value)} r="4.5" fill="var(--accent)" stroke="var(--surface)" strokeWidth="2" />
-            <text
-              x={x(last) + 10}
-              y={y(points[last].value) - 8}
-              fontSize="12"
-              fontWeight="600"
-              fill="var(--ink)"
-              stroke="var(--surface)"
-              strokeWidth="4"
-              style={{ paintOrder: "stroke" }}
-            >
-              {euro.format(points[last].value)}
-            </text>
           </g>
         </svg>
-      )}
-
-      {hovered && hover !== null && (
-        <div
-          className="pointer-events-none absolute z-10 min-w-[136px] rounded-xl border border-edge bg-raised/95 px-3 py-2.5 shadow-lg backdrop-blur"
-          style={{
-            left: Math.min(x(hover) + 14, w - 160),
-            top: Math.max(y(hovered.value) - 88, 4),
-          }}
-        >
-          <div className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
-            {hovered.label}
-          </div>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span
-              className="text-sm font-semibold"
-              style={{ fontVariantNumeric: "tabular-nums" }}
-            >
-              {euro.format(hovered.value)}
-            </span>
-            {dayDelta !== null && (
-              <span
-                className={`text-[11px] font-medium ${
-                  dayDelta >= 0 ? "text-delta-good" : "text-delta-bad"
-                }`}
-              >
-                {dayDelta >= 0 ? "+" : ""}
-                {dayDelta}% vs dag ervoor
-              </span>
-            )}
-          </div>
-          {compareAligned && (
-            <div className="mt-1.5 flex items-center gap-1.5 text-xs text-ink-secondary">
-              <span
-                className="inline-block h-0.5 w-3 rounded-full"
-                style={{ background: "var(--accent-soft)" }}
-              />
-              Vorige periode · {euro.format(compareAligned[hover].value)}
-            </div>
-          )}
-          {onSelect && (
-            <div className="mt-1 text-[10px] text-ink-muted">Klik voor dagdetail</div>
-          )}
-        </div>
       )}
     </div>
   );

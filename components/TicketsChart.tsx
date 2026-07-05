@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import type { DayPoint } from "@/lib/data";
+import { number } from "@/lib/data";
 import { tickIndices } from "./chart-utils";
+import { DeltaPill } from "./RevenueChart";
 import { useSize } from "./useSize";
 
-const H = 260;
-const PAD = { top: 24, right: 8, bottom: 30, left: 8 };
+const H = 240;
+const PAD = { top: 16, right: 8, bottom: 30, left: 8 };
 
 export function TicketsChart({
   points,
@@ -58,8 +60,45 @@ export function TicketsChart({
     return `M${x(i)},${baseline}v${-(barH - r)}q0,${-r} ${r},${-r}h${barW - 2 * r}q${r},0 ${r},${r}v${barH - r}z`;
   };
 
+  // Kop boven de grafiek (Revolut-patroon): groot aantal dat live meebeweegt
+  // met de muis; zonder hover het periodetotaal. Vervangt de tooltip.
+  // Rust-delta: de laatste 7 dagen t.o.v. het periodegemiddelde per dag.
+  const total = points.reduce((a, p) => a + p.value, 0);
+  const recent = points.slice(-7);
+  const recentAvg = recent.reduce((a, p) => a + p.value, 0) / (recent.length || 1);
+  const periodPct =
+    avg > 0 && points.length > 7
+      ? Math.round(((recentAvg - avg) / avg) * 100)
+      : null;
+
   return (
     <div ref={ref} className="relative">
+      <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 px-1">
+        <span
+          className="text-[1.6rem] font-semibold leading-none tracking-tight"
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          {number.format(hovered ? hovered.value : total)}
+        </span>
+        {hovered ? (
+          <span className="flex items-center gap-2 text-xs text-ink-muted">
+            tickets · {hovered.label}
+            {avgDelta !== null && <DeltaPill delta={avgDelta} upIsGood={false} />}
+            <span className="hidden sm:inline">vs gemiddelde</span>
+            {onSelect && <span className="hidden sm:inline">· klik voor dagdetail</span>}
+          </span>
+        ) : (
+          <span className="flex items-center gap-2 text-xs text-ink-muted">
+            tickets · afgelopen {points.length} dagen
+            {periodPct !== null && periodPct !== 0 && (
+              <>
+                <DeltaPill delta={periodPct} upIsGood={false} />
+                <span className="hidden sm:inline">deze week vs gemiddeld</span>
+              </>
+            )}
+          </span>
+        )}
+      </div>
       {width > 0 && (
         <svg
           width={w}
@@ -129,41 +168,6 @@ export function TicketsChart({
             </text>
           ))}
         </svg>
-      )}
-
-      {hovered && hover !== null && (
-        <div
-          className="anim-pop pointer-events-none absolute z-10 min-w-[132px] rounded-xl border border-edge bg-raised/95 px-3 py-2.5 shadow-lg backdrop-blur"
-          style={{
-            left: Math.min(Math.max(x(hover) + barW / 2 - 66, 0), w - 152),
-            top: Math.max(y(hovered.value) - 84, 4),
-          }}
-        >
-          <div className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
-            {hovered.label}
-          </div>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span
-              className="text-sm font-semibold"
-              style={{ fontVariantNumeric: "tabular-nums" }}
-            >
-              {hovered.value} tickets
-            </span>
-            {avgDelta !== null && (
-              <span
-                className={`text-[11px] font-medium ${
-                  avgDelta <= 0 ? "text-delta-good" : "text-delta-bad"
-                }`}
-              >
-                {avgDelta >= 0 ? "+" : ""}
-                {avgDelta}% vs gemiddelde
-              </span>
-            )}
-          </div>
-          {onSelect && (
-            <div className="mt-1 text-[10px] text-ink-muted">Klik voor dagdetail</div>
-          )}
-        </div>
       )}
     </div>
   );
