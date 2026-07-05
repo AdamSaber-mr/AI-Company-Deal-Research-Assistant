@@ -5,9 +5,9 @@ import { SEVERITY, SeverityIcon } from "./severity";
 // van dezelfde ramp zodat de balk als één geheel leest.
 function StockMeter({ fraction, color }: { fraction: number; color: string }) {
   return (
-    <div className="h-1.5 w-full rounded-full bg-accent-track overflow-hidden">
+    <div className="h-2 w-full rounded-full bg-accent-track overflow-hidden">
       <div
-        className="h-full rounded-full"
+        className="h-full rounded-full transition-[width] duration-500 ease-out"
         style={{ width: `${Math.max(4, Math.min(100, fraction * 100))}%`, background: color }}
       />
     </div>

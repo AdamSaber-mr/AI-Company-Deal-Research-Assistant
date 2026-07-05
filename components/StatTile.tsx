@@ -1,3 +1,5 @@
+import { monotonePath } from "./chart-utils";
+
 type StatTileProps = {
   label: string;
   value: string;
@@ -10,27 +12,35 @@ type StatTileProps = {
 function Sparkline({ points }: { points: number[] }) {
   const w = 96;
   const h = 28;
-  const pad = 3;
+  const pad = 4;
   const min = Math.min(...points);
   const max = Math.max(...points);
   const span = max - min || 1;
   const x = (i: number) => pad + (i / (points.length - 1)) * (w - pad * 2);
   const y = (v: number) => h - pad - ((v - min) / span) * (h - pad * 2);
-  const d = points.map((v, i) => `${i ? "L" : "M"}${x(i)},${y(v)}`).join("");
+  const xs = points.map((_, i) => x(i));
+  const line = monotonePath(xs, points.map(y));
   const last = points.length - 1;
 
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden>
-      {/* verleden in de-emphasis, laatste stap in accent */}
-      <path d={d} fill="none" stroke="var(--accent-soft)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      {/* één strakke, vloeiende accent-lijn met een subtiel eindpunt */}
       <path
-        d={`M${x(last - 1)},${y(points[last - 1])}L${x(last)},${y(points[last])}`}
+        d={line}
         fill="none"
         stroke="var(--accent)"
-        strokeWidth="2"
+        strokeWidth="1.75"
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
-      <circle cx={x(last)} cy={y(points[last])} r="4" fill="var(--accent)" stroke="var(--surface)" strokeWidth="2" />
+      <circle
+        cx={x(last)}
+        cy={y(points[last])}
+        r="2.4"
+        fill="var(--accent)"
+        stroke="var(--surface)"
+        strokeWidth="1.5"
+      />
     </svg>
   );
 }
