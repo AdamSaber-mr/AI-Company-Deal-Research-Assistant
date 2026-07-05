@@ -9,7 +9,9 @@ import { cookies } from "next/headers";
 import { getUserById, toPublicUser, type PublicUser } from "./users";
 
 export const SESSION_COOKIE = "kompas_session";
-const MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 dagen
+// Een jaar, en rollend: /api/auth/me geeft bij elk bezoek een verse cookie
+// uit. Zolang je de app af en toe opent, blijf je dus permanent ingelogd.
+const MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 const DATA_DIR = join(process.cwd(), ".data");
 const SECRET_FILE = join(DATA_DIR, "session.secret");
