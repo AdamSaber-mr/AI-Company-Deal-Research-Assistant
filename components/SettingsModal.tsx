@@ -228,12 +228,13 @@ export function SettingsModal() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // Bevestigingen/fouten niet mee laten reizen naar een andere sectie.
-  useEffect(() => {
+  // Bevestigingen/fouten niet mee laten reizen naar een andere sectie: reset
+  // bij openen en bij sectie-wissel (in de handlers, niet in een effect).
+  const resetTransient = () => {
     setConfirmDelete(false);
     setPwError(null);
     setPwDone(false);
-  }, [active, open]);
+  };
 
   const deleteAccount = async () => {
     if (!confirmDelete) {
@@ -255,6 +256,9 @@ export function SettingsModal() {
     const onOpen = (e: Event) => {
       setOpen(true);
       setQuery("");
+      setConfirmDelete(false);
+      setPwError(null);
+      setPwDone(false);
       const section = (e as CustomEvent<SettingsSection | undefined>).detail;
       if (section) setActive(section);
     };
@@ -340,7 +344,10 @@ export function SettingsModal() {
                 <button
                   key={s.key}
                   type="button"
-                  onClick={() => setActive(s.key)}
+                  onClick={() => {
+                    resetTransient();
+                    setActive(s.key);
+                  }}
                   aria-current={isActive ? "true" : undefined}
                   className={`flex shrink-0 items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
                     isActive
