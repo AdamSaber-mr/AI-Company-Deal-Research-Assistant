@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { RANGES } from "@/lib/data";
 import { saveSettings, type Settings } from "@/lib/settings";
 import { useStoredSettings } from "@/lib/useSettings";
-import { useCurrentUser } from "@/lib/useCurrentUser";
+import { refreshCurrentUser, useCurrentUser } from "@/lib/useCurrentUser";
 import { ThemeToggle } from "./ThemeToggle";
 import { Switch } from "./Switch";
 
 export type SettingsSection =
   | "profiel"
+  | "account"
   | "weergave"
   | "signaleringen"
   | "briefing"
@@ -43,6 +45,16 @@ const SECTIONS: { key: SectionKey; label: string; icon: React.ReactNode }[] = [
       <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden>
         <circle cx="9" cy="6.2" r="3" {...nav} />
         <path d="M3.5 15.2c0-2.9 2.5-4.6 5.5-4.6s5.5 1.7 5.5 4.6" {...nav} />
+      </svg>
+    ),
+  },
+  {
+    key: "account",
+    label: "Account",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden>
+        <path d="M9 2.2l5.8 2.2v4.2c0 3.5-2.4 5.9-5.8 7.2-3.4-1.3-5.8-3.7-5.8-7.2V4.4L9 2.2z" {...nav} />
+        <path d="M6.6 9l1.7 1.7L11.6 7.4" {...nav} />
       </svg>
     ),
   },
@@ -143,6 +155,7 @@ const INTEGRATIONS = [
 export function SettingsModal() {
   const stored = useStoredSettings();
   const { user } = useCurrentUser();
+  const router = useRouter();
   const [override, setOverride] = useState<Settings | null>(null);
   const settings = override ?? stored;
   const [saved, setSaved] = useState(false);
@@ -151,6 +164,92 @@ export function SettingsModal() {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<SectionKey>("profiel");
   const [query, setQuery] = useState("");
+
+  // Profielvelden: lokale draft over de accountwaarde heen; wijzigingen gaan
+  // debounced naar de server zodat we niet per toetsaanslag PATCHen.
+  const [nameDraft, setNameDraft] = useState<string | null>(null);
+  const patchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const patchAccount = (patch: { name?: string; company?: string }) => {
+    if (patchTimer.current) clearTimeout(patchTimer.current);
+    patchTimer.current = setTimeout(async () => {
+      try {
+        await fetch("/api/auth/account", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        });
+        refreshCurrentUser();
+      } catch {
+        /* lokaal blijft de draft staan; volgende poging pakt het op */
+      }
+    }, 600);
+  };
+
+  // Wachtwoord wijzigen
+  const [pwCurrent, setPwCurrent] = useState("");
+  const [pwNext, setPwNext] = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwDone, setPwDone] = useState(false);
+  const [pwLoading, setPwLoading] = useState(false);
+
+  const changePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pwLoading) return;
+    setPwError(null);
+    setPwDone(false);
+    if (pwNext !== pwConfirm) {
+      setPwError("De nieuwe wachtwoorden komen niet overeen.");
+      return;
+    }
+    setPwLoading(true);
+    try {
+      const res = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current: pwCurrent, next: pwNext }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPwError(data.error ?? "Er ging iets mis.");
+      } else {
+        setPwDone(true);
+        setPwCurrent("");
+        setPwNext("");
+        setPwConfirm("");
+      }
+    } catch {
+      setPwError("Geen verbinding. Probeer het opnieuw.");
+    }
+    setPwLoading(false);
+  };
+
+  // Account verwijderen (twee-staps bevestiging)
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Bevestigingen/fouten niet mee laten reizen naar een andere sectie.
+  useEffect(() => {
+    setConfirmDelete(false);
+    setPwError(null);
+    setPwDone(false);
+  }, [active, open]);
+
+  const deleteAccount = async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    setDeleting(true);
+    try {
+      await fetch("/api/auth/account", { method: "DELETE" });
+    } catch {
+      /* sessie kan al weg zijn; doorsturen is dan alsnog correct */
+    }
+    setOpen(false);
+    router.push("/login");
+    router.refresh();
+  };
 
   useEffect(() => {
     const onOpen = (e: Event) => {
@@ -304,11 +403,17 @@ export function SettingsModal() {
                     {initials}
                   </span>
                 </Row>
-                {user && (
-                  <Row label="Naam">
-                    <span className="text-sm text-ink-secondary">{user.name}</span>
-                  </Row>
-                )}
+                <Row label="Naam" hint="wordt gebruikt in de ochtendbriefing">
+                  <input
+                    className={`${inputClass} w-56`}
+                    value={nameDraft ?? user?.name ?? ""}
+                    onChange={(e) => {
+                      setNameDraft(e.target.value);
+                      update({ ownerName: e.target.value });
+                      patchAccount({ name: e.target.value });
+                    }}
+                  />
+                </Row>
                 {user && (
                   <Row label="E-mailadres">
                     <span className="text-sm text-ink-secondary">{user.email}</span>
@@ -318,10 +423,109 @@ export function SettingsModal() {
                   <input
                     className={`${inputClass} w-56`}
                     value={settings.companyName}
-                    onChange={(e) => update({ companyName: e.target.value })}
+                    onChange={(e) => {
+                      update({ companyName: e.target.value });
+                      patchAccount({ company: e.target.value });
+                    }}
                   />
                 </Row>
               </Group>
+            )}
+
+            {active === "account" && (
+              <div className="flex flex-col gap-10">
+                <Group
+                  title="Wachtwoord wijzigen"
+                  description="Kies een nieuw wachtwoord voor je account."
+                >
+                  <form onSubmit={changePassword} className="flex flex-col gap-4 py-4 first:pt-0">
+                    {pwError && (
+                      <div
+                        role="alert"
+                        className="anim-pop flex items-start gap-2 rounded-lg border border-critical/30 bg-critical/10 px-3 py-2.5 text-sm text-critical"
+                      >
+                        {pwError}
+                      </div>
+                    )}
+                    {pwDone && (
+                      <div className="anim-pop rounded-lg border border-edge bg-raised px-3 py-2.5 text-sm text-delta-good">
+                        Wachtwoord gewijzigd.
+                      </div>
+                    )}
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-sm text-ink">Huidig wachtwoord</span>
+                      <input
+                        type="password"
+                        className={`${inputClass} w-64 max-w-full`}
+                        value={pwCurrent}
+                        onChange={(e) => setPwCurrent(e.target.value)}
+                        autoComplete="current-password"
+                        required
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-sm text-ink">Nieuw wachtwoord</span>
+                      <input
+                        type="password"
+                        className={`${inputClass} w-64 max-w-full`}
+                        value={pwNext}
+                        onChange={(e) => setPwNext(e.target.value)}
+                        autoComplete="new-password"
+                        placeholder="Minstens 8 tekens"
+                        minLength={8}
+                        required
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-sm text-ink">Herhaal nieuw wachtwoord</span>
+                      <input
+                        type="password"
+                        className={`${inputClass} w-64 max-w-full`}
+                        value={pwConfirm}
+                        onChange={(e) => setPwConfirm(e.target.value)}
+                        autoComplete="new-password"
+                        required
+                      />
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={pwLoading}
+                      className="self-start rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                    >
+                      Wachtwoord opslaan
+                    </button>
+                  </form>
+                </Group>
+
+                <Group
+                  title="Account verwijderen"
+                  description="Verwijdert je account definitief. Dit kan niet ongedaan worden gemaakt."
+                >
+                  <div className="flex items-center gap-3 py-4 first:pt-0">
+                    <button
+                      type="button"
+                      onClick={deleteAccount}
+                      disabled={deleting}
+                      className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-60 ${
+                        confirmDelete
+                          ? "bg-critical text-white hover:opacity-90"
+                          : "border border-critical/40 text-critical hover:bg-critical/10"
+                      }`}
+                    >
+                      {confirmDelete ? "Ja, verwijder definitief" : "Account verwijderen"}
+                    </button>
+                    {confirmDelete && !deleting && (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDelete(false)}
+                        className="text-sm text-ink-muted hover:text-ink"
+                      >
+                        Annuleren
+                      </button>
+                    )}
+                  </div>
+                </Group>
+              </div>
             )}
 
             {active === "weergave" && (

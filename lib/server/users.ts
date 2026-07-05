@@ -176,3 +176,37 @@ export function updateUserPassword(userId: string, password: string): boolean {
   writeUsers(users);
   return true;
 }
+
+/** Werkt naam en/of bedrijfsnaam bij; geeft het bijgewerkte account terug. */
+export function updateUserProfile(
+  userId: string,
+  patch: { name?: string; company?: string }
+): StoredUser | null {
+  const users = readUsers();
+  const user = users.find((u) => u.id === userId);
+  if (!user) return null;
+  if (patch.name !== undefined && patch.name.trim().length >= 2) {
+    user.name = patch.name.trim();
+  }
+  if (patch.company !== undefined && patch.company.trim()) {
+    user.company = patch.company.trim();
+  }
+  writeUsers(users);
+  return user;
+}
+
+/** Controleert het huidige wachtwoord van een gebruiker (voor wijzigen). */
+export function checkPassword(userId: string, password: string): boolean {
+  const user = getUserById(userId);
+  return user ? verifyPassword(password, user.passwordHash) : false;
+}
+
+/** Verwijdert het account en eventuele openstaande herstel-tokens. */
+export function deleteUser(userId: string): boolean {
+  const users = readUsers();
+  const next = users.filter((u) => u.id !== userId);
+  if (next.length === users.length) return false;
+  writeUsers(next);
+  writeResets(readResets().filter((r) => r.userId !== userId));
+  return true;
+}
