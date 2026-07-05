@@ -14,6 +14,7 @@ import { alerts, type Alert, type Severity } from "@/lib/data";
 import { useConversations } from "@/lib/useChats";
 import { useStoredSettings } from "@/lib/useSettings";
 import { useCurrentUser } from "@/lib/useCurrentUser";
+import { Avatar } from "./Avatar";
 import { CommandPalette, openCommandPalette } from "./CommandPalette";
 import { NotificationCenter, useReadAlerts } from "./NotificationCenter";
 import { SettingsModal, openSettings } from "./SettingsModal";
@@ -211,19 +212,8 @@ function AccountRow({ collapsed }: { collapsed: boolean }) {
   // zolang /me nog laadt.
   const name = user?.name?.trim() || settings.ownerName?.trim() || "Gebruiker";
   const subtitle = user?.email ?? settings.companyName;
-  const initials =
-    name
-      .split(/\s+/)
-      .map((w) => w[0])
-      .slice(0, 2)
-      .join("")
-      .toUpperCase() || "?";
 
-  const avatar = (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-track/70 text-[13px] font-semibold text-ink">
-      {initials}
-    </span>
-  );
+  const avatar = <Avatar name={name} src={user?.avatar} size={36} />;
 
   const go = (action: () => void) => () => {
     setOpen(false);

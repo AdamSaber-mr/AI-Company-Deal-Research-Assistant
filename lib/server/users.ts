@@ -17,6 +17,7 @@ export type StoredUser = {
   email: string;
   name: string;
   company: string;
+  avatar?: string; // data-URL (client-side verkleind), optioneel
   passwordHash: string; // "salt:hash" (beide hex)
   createdAt: number;
 };
@@ -27,6 +28,7 @@ export type PublicUser = {
   email: string;
   name: string;
   company: string;
+  avatar?: string;
 };
 
 const DATA_DIR = join(process.cwd(), ".data");
@@ -56,7 +58,13 @@ function writeUsers(users: StoredUser[]) {
 }
 
 export function toPublicUser(u: StoredUser): PublicUser {
-  return { id: u.id, email: u.email, name: u.name, company: u.company };
+  return {
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    company: u.company,
+    avatar: u.avatar,
+  };
 }
 
 /* ------------------------------ wachtwoorden ------------------------------ */
@@ -177,10 +185,14 @@ export function updateUserPassword(userId: string, password: string): boolean {
   return true;
 }
 
-/** Werkt naam en/of bedrijfsnaam bij; geeft het bijgewerkte account terug. */
+// Data-URL avatar: max ~200KB na client-side verkleinen; ruim genoeg voor
+// een 256px JPEG en klein genoeg voor het JSON-bestand.
+const MAX_AVATAR_LENGTH = 200_000;
+
+/** Werkt naam, bedrijfsnaam en/of avatar bij; geeft het account terug. */
 export function updateUserProfile(
   userId: string,
-  patch: { name?: string; company?: string }
+  patch: { name?: string; company?: string; avatar?: string | null }
 ): StoredUser | null {
   const users = readUsers();
   const user = users.find((u) => u.id === userId);
@@ -190,6 +202,15 @@ export function updateUserProfile(
   }
   if (patch.company !== undefined && patch.company.trim()) {
     user.company = patch.company.trim();
+  }
+  if (patch.avatar === null) {
+    delete user.avatar;
+  } else if (
+    typeof patch.avatar === "string" &&
+    patch.avatar.startsWith("data:image/") &&
+    patch.avatar.length <= MAX_AVATAR_LENGTH
+  ) {
+    user.avatar = patch.avatar;
   }
   writeUsers(users);
   return user;

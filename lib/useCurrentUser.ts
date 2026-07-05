@@ -7,6 +7,7 @@ export type CurrentUser = {
   email: string;
   name: string;
   company: string;
+  avatar?: string;
 } | null;
 
 /** Laat alle useCurrentUser-hooks opnieuw ophalen (na profielwijziging). */

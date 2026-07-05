@@ -6,6 +6,7 @@ import { RANGES } from "@/lib/data";
 import { saveSettings, type Settings } from "@/lib/settings";
 import { useStoredSettings } from "@/lib/useSettings";
 import { refreshCurrentUser, useCurrentUser } from "@/lib/useCurrentUser";
+import { Avatar, fileToAvatarDataUrl } from "./Avatar";
 import { ThemeToggle } from "./ThemeToggle";
 import { Switch } from "./Switch";
 
@@ -287,13 +288,34 @@ export function SettingsModal() {
     return q ? SECTIONS.filter((s) => s.label.toLowerCase().includes(q)) : SECTIONS;
   }, [query]);
 
-  const initials =
-    (user?.name?.trim() || settings.ownerName?.trim() || "")
-      .split(/\s+/)
-      .map((w) => w[0])
-      .slice(0, 2)
-      .join("")
-      .toUpperCase() || "?";
+  // Avatar uploaden: client-side verkleinen → PATCH → account verversen.
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+
+  const setAvatar = async (value: string | null) => {
+    setAvatarBusy(true);
+    try {
+      await fetch("/api/auth/account", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatar: value }),
+      });
+      refreshCurrentUser();
+    } catch {
+      /* volgende poging pakt het op */
+    }
+    setAvatarBusy(false);
+  };
+
+  const onAvatarFile = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const dataUrl = await fileToAvatarDataUrl(file);
+      await setAvatar(dataUrl);
+    } catch {
+      /* ongeldig bestand — negeren */
+    }
+  };
 
   if (!open) return null;
 
@@ -405,10 +427,45 @@ export function SettingsModal() {
           <div className="-mt-6 px-6 pb-8 sm:px-8">
             {active === "profiel" && (
               <Group title="Profiel">
-                <Row label="Avatar">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-track/70 text-[13px] font-semibold text-ink">
-                    {initials}
-                  </span>
+                <Row
+                  label="Avatar"
+                  hint="klik om een foto te kiezen — wordt automatisch verkleind"
+                >
+                  <div className="flex items-center gap-3">
+                    {user?.avatar && (
+                      <button
+                        type="button"
+                        onClick={() => setAvatar(null)}
+                        disabled={avatarBusy}
+                        className="text-xs text-ink-muted hover:text-ink disabled:opacity-60"
+                      >
+                        Verwijderen
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => avatarInputRef.current?.click()}
+                      disabled={avatarBusy}
+                      aria-label="Avatar wijzigen"
+                      className="rounded-full transition-opacity hover:opacity-80 disabled:opacity-60"
+                    >
+                      <Avatar
+                        name={user?.name ?? settings.ownerName ?? ""}
+                        src={user?.avatar}
+                        size={40}
+                      />
+                    </button>
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        void onAvatarFile(e.target.files?.[0]);
+                        e.target.value = "";
+                      }}
+                    />
+                  </div>
                 </Row>
                 <Row label="Naam" hint="wordt gebruikt in de ochtendbriefing">
                   <input

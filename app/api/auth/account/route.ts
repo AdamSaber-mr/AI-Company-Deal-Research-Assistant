@@ -24,15 +24,29 @@ export async function PATCH(request: NextRequest) {
     return Response.json({ error: "Ongeldig verzoek." }, { status: 400 });
   }
 
-  const { name, company } = (body ?? {}) as { name?: string; company?: string };
+  const { name, company, avatar } = (body ?? {}) as {
+    name?: string;
+    company?: string;
+    avatar?: string | null;
+  };
   if (name !== undefined && name.trim().length < 2) {
     return Response.json({ error: "Vul je naam in." }, { status: 400 });
   }
   if (company !== undefined && !company.trim()) {
     return Response.json({ error: "Vul een bedrijfsnaam in." }, { status: 400 });
   }
+  if (
+    avatar !== undefined &&
+    avatar !== null &&
+    (!avatar.startsWith("data:image/") || avatar.length > 200_000)
+  ) {
+    return Response.json(
+      { error: "Afbeelding is te groot of ongeldig." },
+      { status: 400 }
+    );
+  }
 
-  const user = updateUserProfile(me.id, { name, company });
+  const user = updateUserProfile(me.id, { name, company, avatar });
   if (!user) {
     return Response.json({ error: "Account niet gevonden." }, { status: 404 });
   }
