@@ -28,3 +28,31 @@ export function subscribeScope(listener: () => void) {
     listeners.delete(listener);
   };
 }
+
+/** Forceer een herlees van alle gescopte data (na migratie of sync). */
+export function notifyScope() {
+  listeners.forEach((l) => l());
+}
+
+// Sleutels van vóór de per-account scheiding (ongescoopt).
+const LEGACY_BASES = ["bcc-chats", "bcc-settings"];
+
+/**
+ * Eenmalige migratie: data van vóór de account-scheiding wordt geclaimd door
+ * het eerste account dat inlogt, daarna verdwijnen de oude sleutels zodat
+ * volgende accounts schoon starten.
+ */
+export function migrateLegacyData(userId: string): boolean {
+  let migrated = false;
+  for (const base of LEGACY_BASES) {
+    const legacy = localStorage.getItem(base);
+    if (legacy === null) continue;
+    const scoped = `${base}::${userId}`;
+    if (localStorage.getItem(scoped) === null) {
+      localStorage.setItem(scoped, legacy);
+      migrated = true;
+    }
+    localStorage.removeItem(base);
+  }
+  return migrated;
+}

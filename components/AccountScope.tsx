@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { setActiveUserId } from "@/lib/scope";
+import { migrateLegacyData, notifyScope, setActiveUserId } from "@/lib/scope";
 import { DEFAULT_SETTINGS, hasStoredSettings, saveSettings } from "@/lib/settings";
 
 /**
@@ -21,6 +21,8 @@ export function AccountScope({
 
   useEffect(() => {
     setActiveUserId(user.id);
+    // Data van vóór de account-scheiding eenmalig aan dit account koppelen.
+    if (migrateLegacyData(user.id)) notifyScope();
     if (!hasStoredSettings()) {
       saveSettings({
         ...DEFAULT_SETTINGS,
