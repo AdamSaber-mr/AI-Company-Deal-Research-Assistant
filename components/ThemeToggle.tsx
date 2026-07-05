@@ -2,36 +2,47 @@
 
 import { useState, useSyncExternalStore } from "react";
 
-type Theme = "light" | "dark";
+// De *keuze* van de gebruiker (niet het opgeloste thema): "system" volgt de
+// systeemvoorkeur en is de standaard. Licht/donker overrulen dat.
+type ThemeChoice = "system" | "light" | "dark";
 
-function currentTheme(): Theme {
-  const set = document.documentElement.dataset.theme;
-  if (set === "light" || set === "dark") return set;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+function storedChoice(): ThemeChoice {
+  const raw = localStorage.getItem("theme");
+  return raw === "light" || raw === "dark" ? raw : "system";
 }
 
-// Op de server (en tijdens hydration) is het thema onbekend: geen actieve knop.
+// Op de server (en tijdens hydration) is de keuze onbekend: val terug op auto.
 const noopSubscribe = () => () => {};
-const serverTheme = () => null;
+const serverChoice = (): ThemeChoice => "system";
 
 export function ThemeToggle() {
-  const initial = useSyncExternalStore<Theme | null>(
-    noopSubscribe,
-    currentTheme,
-    serverTheme
-  );
-  const [override, setOverride] = useState<Theme | null>(null);
-  const theme = override ?? initial;
+  const initial = useSyncExternalStore(noopSubscribe, storedChoice, serverChoice);
+  const [override, setOverride] = useState<ThemeChoice | null>(null);
+  const choice = override ?? initial;
 
-  const apply = (t: Theme) => {
-    document.documentElement.setAttribute("data-theme", t);
-    localStorage.setItem("theme", t);
-    setOverride(t);
+  const apply = (next: ThemeChoice) => {
+    if (next === "system") {
+      // Attribuut weg → de CSS-mediaquery bepaalt weer licht/donker.
+      document.documentElement.removeAttribute("data-theme");
+      localStorage.setItem("theme", "system");
+    } else {
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("theme", next);
+    }
+    setOverride(next);
   };
 
-  const options: { key: Theme; label: string; icon: React.ReactNode }[] = [
+  const options: { key: ThemeChoice; label: string; icon: React.ReactNode }[] = [
+    {
+      key: "system",
+      label: "Auto",
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+          <rect x="2" y="3" width="12" height="8.5" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M6 14h4M8 11.5V14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      ),
+    },
     {
       key: "light",
       label: "Licht",
@@ -71,7 +82,7 @@ export function ThemeToggle() {
       aria-label="Thema"
     >
       {options.map((o) => {
-        const active = theme === o.key;
+        const active = choice === o.key;
         return (
           <button
             key={o.key}

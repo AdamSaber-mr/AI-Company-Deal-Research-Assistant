@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useConversations } from "@/lib/useChats";
+import { openSettings } from "./SettingsModal";
 
 type PaletteItem = {
   key: string;
@@ -10,6 +11,11 @@ type PaletteItem = {
   label: string;
   href: string;
 };
+
+/** Open het zoekpalet van buitenaf (bijv. de zoekknop in de sidebar). */
+export function openCommandPalette() {
+  window.dispatchEvent(new Event("kompas:open-search"));
+}
 
 const PAGES: { href: string; label: string }[] = [
   { href: "/overzicht", label: "Overzicht" },
@@ -39,8 +45,17 @@ export function CommandPalette() {
         setIndex(0);
       }
     };
+    const onOpen = () => {
+      setOpen(true);
+      setQuery("");
+      setIndex(0);
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("kompas:open-search", onOpen);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("kompas:open-search", onOpen);
+    };
   }, []);
 
   const items = useMemo<PaletteItem[]>(() => {
@@ -80,6 +95,10 @@ export function CommandPalette() {
   const choose = (item: PaletteItem | undefined) => {
     if (!item) return;
     setOpen(false);
+    if (item.href === "/instellingen") {
+      openSettings();
+      return;
+    }
     router.push(item.href);
   };
 

@@ -12,9 +12,11 @@ import {
 } from "@/lib/chat";
 import { alerts, type Alert, type Severity } from "@/lib/data";
 import { useConversations } from "@/lib/useChats";
-import { CommandPalette } from "./CommandPalette";
+import { useStoredSettings } from "@/lib/useSettings";
+import { useCurrentUser } from "@/lib/useCurrentUser";
+import { CommandPalette, openCommandPalette } from "./CommandPalette";
 import { NotificationCenter, useReadAlerts } from "./NotificationCenter";
-import { ThemeToggle } from "./ThemeToggle";
+import { SettingsModal, openSettings } from "./SettingsModal";
 
 type NavItem = {
   href: string;
@@ -119,26 +121,236 @@ const NEW_CHAT_ICON = (
   </svg>
 );
 
-function Logo({ collapsed = false }: { collapsed?: boolean }) {
+// Woordmerk als tekst (geen icoon) — editorial serif, net als "Claude".
+function Wordmark() {
   return (
     <Link
       href="/"
-      className={`flex items-center gap-2.5 ${collapsed ? "justify-center px-0" : "px-3"}`}
-      title={collapsed ? "Kompas" : undefined}
+      className="font-serif text-[22px] font-semibold leading-none tracking-tight text-ink"
     >
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-white">
-        <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden>
-          <circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" strokeWidth="1.7" />
-          <path d="M12 6l-1.9 4.1L6 12l1.9-4.1z" fill="currentColor" />
-        </svg>
-      </span>
-      {!collapsed && (
-        <span className="leading-tight">
-          <span className="block text-sm font-semibold tracking-tight">Kompas</span>
-          <span className="block text-[11px] text-ink-muted">Research Assistant</span>
-        </span>
-      )}
+      Kompas
     </Link>
+  );
+}
+
+const SEARCH_ICON = (
+  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+    <circle cx="7" cy="7" r="4.5" {...stroke} />
+    <path d="M10.5 10.5L14 14" {...stroke} />
+  </svg>
+);
+
+// Kleine, ronde icoonknop voor de kop van de sidebar (zoeken, in-/uitklappen).
+function IconButton({
+  onClick,
+  label,
+  children,
+}: {
+  onClick: () => void;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-accent-track/40 hover:text-ink"
+    >
+      {children}
+    </button>
+  );
+}
+
+// Eén menu-item in het accountmenu.
+function MenuItem({
+  icon,
+  label,
+  onClick,
+  hint,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  hint?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-ink-secondary transition-colors hover:bg-accent-track/40 hover:text-ink"
+    >
+      <span className="shrink-0 text-ink-muted">{icon}</span>
+      <span className="flex-1 truncate">{label}</span>
+      {hint && (
+        <span className="shrink-0 text-xs tracking-wide text-ink-muted">{hint}</span>
+      )}
+    </button>
+  );
+}
+
+const menuIcon = {
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.6,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+};
+
+// Accountrij onderaan: avatar + naam + bedrijf. Klik opent een menu-popover
+// (zoals Claude). Klapt in tot alleen de avatar; het menu blijft clean bij
+// elke sidebar-breedte omdat het los boven de rij zweeft.
+function AccountRow({ collapsed }: { collapsed: boolean }) {
+  const settings = useStoredSettings();
+  const { user } = useCurrentUser();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+
+  // Naam/e-mail komen uit het ingelogde account; val terug op de instellingen
+  // zolang /me nog laadt.
+  const name = user?.name?.trim() || settings.ownerName?.trim() || "Gebruiker";
+  const subtitle = user?.email ?? settings.companyName;
+  const initials =
+    name
+      .split(/\s+/)
+      .map((w) => w[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "?";
+
+  const avatar = (
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-track/70 text-[13px] font-semibold text-ink">
+      {initials}
+    </span>
+  );
+
+  const go = (action: () => void) => () => {
+    setOpen(false);
+    action();
+  };
+
+  const logout = async () => {
+    setOpen(false);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      /* ook bij netwerkfout doorsturen naar login */
+    }
+    router.push("/login");
+    router.refresh();
+  };
+
+  return (
+    <div className="relative">
+      {open && (
+        <>
+          {/* onzichtbare vanger sluit het menu bij klik ernaast */}
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
+          <div
+            role="menu"
+            className={`anim-pop absolute bottom-full z-50 mb-2 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-edge bg-raised p-1.5 shadow-2xl ${
+              collapsed ? "left-0 w-[248px]" : "left-0 right-0"
+            }`}
+          >
+            <div className="px-3 pb-2 pt-1.5 leading-tight">
+              <div className="truncate text-sm font-medium text-ink">{name}</div>
+              <div className="truncate text-xs text-ink-muted">{subtitle}</div>
+            </div>
+            <div className="my-1 border-t border-edge" />
+
+            <MenuItem
+              icon={
+                <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden>
+                  <circle cx="9" cy="9" r="2.4" {...menuIcon} />
+                  <path d="M9 2.2v1.6M9 14.2v1.6M2.2 9h1.6M14.2 9h1.6M4.2 4.2l1.1 1.1M12.7 12.7l1.1 1.1M13.8 4.2l-1.1 1.1M5.3 12.7l-1.1 1.1" {...menuIcon} />
+                </svg>
+              }
+              label="Instellingen"
+              hint="⌘,"
+              onClick={go(() => openSettings())}
+            />
+            <MenuItem
+              icon={
+                <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden>
+                  <rect x="2.5" y="3.5" width="13" height="9" rx="1.4" {...menuIcon} />
+                  <path d="M6.5 15.5h5M9 12.5v3" {...menuIcon} />
+                </svg>
+              }
+              label="Weergave & thema"
+              onClick={go(() => openSettings("weergave"))}
+            />
+            <MenuItem
+              icon={
+                <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden>
+                  <circle cx="9" cy="9" r="6.4" {...menuIcon} />
+                  <path d="M6.9 6.9a2.1 2.1 0 114 .9c0 1.4-2 1.6-2 3M9 12.6v.05" {...menuIcon} />
+                </svg>
+              }
+              label="Hulp & uitleg"
+              onClick={go(() => router.push("/"))}
+            />
+
+            <div className="my-1 border-t border-edge" />
+
+            <MenuItem
+              icon={
+                <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden>
+                  <path d="M7.4 10.6l3.2-3.2M6.6 12.2l-1 1a2.4 2.4 0 01-3.4-3.4l1.9-1.9a2.4 2.4 0 013.4 0M11.4 5.8l1-1a2.4 2.4 0 013.4 3.4l-1.9 1.9a2.4 2.4 0 01-3.4 0" {...menuIcon} />
+                </svg>
+              }
+              label="Systemen koppelen"
+              onClick={go(() => openSettings("koppelingen"))}
+            />
+
+            <div className="my-1 border-t border-edge" />
+
+            <MenuItem
+              icon={
+                <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden>
+                  <path d="M11.5 12.5l3-3.5-3-3.5M14 9H6.5M8.5 2.5H4.2a.7.7 0 00-.7.7v11.6a.7.7 0 00.7.7h4.3" {...menuIcon} />
+                </svg>
+              }
+              label="Uitloggen"
+              onClick={logout}
+            />
+          </div>
+        </>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title={collapsed ? name : undefined}
+        aria-label={collapsed ? `${name} · accountmenu` : undefined}
+        className={
+          collapsed
+            ? "flex w-full justify-center"
+            : `flex w-full items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-left transition-colors ${
+                open ? "bg-accent-track/50" : "hover:bg-accent-track/40"
+              }`
+        }
+      >
+        {avatar}
+        {!collapsed && (
+          <>
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="block truncate text-sm font-medium text-ink">{name}</span>
+              <span className="block truncate text-[11px] text-ink-muted">
+                {subtitle}
+              </span>
+            </span>
+            <span className="text-ink-muted">
+              <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden>
+                <path d="M4.5 10L8 6.5 11.5 10" {...menuIcon} />
+              </svg>
+            </span>
+          </>
+        )}
+      </button>
+    </div>
   );
 }
 
@@ -459,24 +671,15 @@ function useSidebarWidth() {
 export function Sidebar() {
   const pathname = usePathname();
   const conversations = useConversations();
-  const [query, setQuery] = useState("");
   const { width, resizing, handleProps } = useSidebarWidth();
   const { collapsed, toggle } = useSidebarCollapsed();
   const readAlerts = useReadAlerts();
   const badges = badgesByHref(readAlerts);
 
-  const q = query.trim().toLowerCase();
-  const filtered = q
-    ? conversations.filter(
-        (c) =>
-          c.title.toLowerCase().includes(q) ||
-          c.messages.some((m) => m.content.toLowerCase().includes(q))
-      )
-    : conversations;
-  const archivedChats = filtered
+  const archivedChats = conversations
     .filter((c) => c.archived)
     .sort((a, b) => b.updatedAt - a.updatedAt);
-  const groups = groupChats(filtered.filter((c) => !c.archived));
+  const groups = groupChats(conversations.filter((c) => !c.archived));
   const [showArchived, setShowArchived] = useState(false);
   const [mobileChatsOpen, setMobileChatsOpen] = useState(false);
 
@@ -497,9 +700,6 @@ export function Sidebar() {
       badge={badges[item.href]}
     />
   ));
-  const settingsLink = (
-    <NavLink item={SETTINGS_ITEM} active={pathname === SETTINGS_ITEM.href} />
-  );
 
   return (
     <>
@@ -509,7 +709,7 @@ export function Sidebar() {
           transparante paginawrapper die later in de DOM komt. */}
       <aside
         style={{ width: collapsed ? COLLAPSED_WIDTH : width }}
-        className={`sticky top-0 z-40 hidden h-screen shrink-0 flex-col gap-4 border-r border-edge bg-surface py-6 px-3 print:!hidden lg:flex ${
+        className={`sticky top-0 z-40 hidden h-screen shrink-0 flex-col gap-3 border-r border-edge bg-surface py-5 px-3 print:!hidden lg:flex ${
           resizing ? "select-none" : "transition-[width] duration-200 ease-out"
         }`}
       >
@@ -526,33 +726,34 @@ export function Sidebar() {
           />
         )}
 
+        {/* Kop: woordmerk links, zoeken + meldingen + in-/uitklappen rechts */}
         <div
           className={
             collapsed
-              ? "flex flex-col items-center gap-2"
-              : "flex items-center justify-between gap-2 pr-1"
+              ? "flex flex-col items-center gap-1.5"
+              : "flex items-center justify-between gap-2 pl-2 pr-1"
           }
         >
-          <Logo collapsed={collapsed} />
-          <NotificationCenter />
-          <button
-            type="button"
-            onClick={toggle}
-            title={collapsed ? "Sidebar uitklappen" : "Sidebar inklappen"}
-            aria-label={collapsed ? "Sidebar uitklappen" : "Sidebar inklappen"}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-accent-track/40 hover:text-ink"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
-              {collapsed ? (
-                <path d="M6 3.5L10.5 8 6 12.5" {...stroke} />
-              ) : (
-                <path d="M10 3.5L5.5 8 10 12.5" {...stroke} />
-              )}
-            </svg>
-          </button>
+          {!collapsed && <Wordmark />}
+          <div className={collapsed ? "flex flex-col items-center gap-1.5" : "flex items-center gap-0.5"}>
+            <IconButton onClick={openCommandPalette} label="Zoeken (⌘K)">
+              {SEARCH_ICON}
+            </IconButton>
+            <NotificationCenter />
+            <IconButton
+              onClick={toggle}
+              label={collapsed ? "Sidebar uitklappen" : "Sidebar inklappen"}
+            >
+              <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden>
+                <rect x="2.5" y="3" width="13" height="12" rx="2" {...stroke} />
+                <path d="M7 3v12" {...stroke} />
+              </svg>
+            </IconButton>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-1">
+        {/* Nieuwe chat + dashboardnavigatie */}
+        <div className="flex flex-col gap-0.5">
           <Link
             href="/"
             title={collapsed ? "Nieuwe chat" : undefined}
@@ -561,51 +762,51 @@ export function Sidebar() {
             } ${
               pathname === "/"
                 ? "bg-accent-track/70 text-ink"
-                : "text-accent hover:bg-accent-track/40"
+                : "text-ink-secondary hover:bg-accent-track/40 hover:text-ink"
             }`}
           >
-            <span className={pathname === "/" ? "text-accent" : ""}>{NEW_CHAT_ICON}</span>
+            <span className="text-ink-muted">{NEW_CHAT_ICON}</span>
             {!collapsed && "Nieuwe chat"}
           </Link>
 
           {!collapsed && (
-            <div className="relative px-0.5">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                aria-hidden
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
-              >
-                <circle cx="7" cy="7" r="4.5" {...stroke} />
-                <path d="M10.5 10.5L14 14" {...stroke} />
-              </svg>
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Chats zoeken"
-                className="w-full rounded-lg border border-edge bg-transparent py-1.5 pl-8 pr-9 text-sm outline-none placeholder:text-ink-muted focus:border-accent/50"
-                aria-label="Chats zoeken"
-              />
-              <kbd
-                className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-edge px-1 text-[10px] text-ink-muted"
-                title="⌘K opent het zoekpalet"
-              >
-                ⌘K
-              </kbd>
+            <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+              Dashboard
             </div>
           )}
+          <nav className="flex flex-col gap-0.5" aria-label="Hoofdnavigatie">
+            {desktopNav}
+          </nav>
         </div>
 
+        {/* Recents: gespreksgeschiedenis, vult de resterende ruimte */}
         {collapsed ? (
           <div className="flex-1" />
         ) : (
-          <div className="-mx-1 flex-1 overflow-y-auto px-1" aria-label="Gespreksgeschiedenis">
+          <div
+            className="-mx-1 mt-1 flex-1 overflow-y-auto px-1"
+            aria-label="Gespreksgeschiedenis"
+          >
+            <div className="flex items-center justify-between px-3 pb-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+                Recents
+              </span>
+              <button
+                type="button"
+                onClick={openCommandPalette}
+                aria-label="Chats zoeken"
+                title="Chats zoeken"
+                className="text-ink-muted transition-colors hover:text-ink"
+              >
+                <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden>
+                  <circle cx="7" cy="7" r="4.5" {...stroke} />
+                  <path d="M10.5 10.5L14 14" {...stroke} />
+                </svg>
+              </button>
+            </div>
             {groups.length === 0 && archivedChats.length === 0 ? (
               <p className="px-3 py-2 text-xs leading-relaxed text-ink-muted">
-                {q
-                  ? "Geen gesprekken gevonden."
-                  : "Nog geen gesprekken — begin een nieuwe chat."}
+                Nog geen gesprekken — begin een nieuwe chat.
               </p>
             ) : (
               <div className="flex flex-col gap-4">
@@ -659,40 +860,24 @@ export function Sidebar() {
           </div>
         )}
 
-        <div className="border-t border-edge pt-3">
-          {!collapsed && (
-            <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
-              Dashboard
-            </div>
-          )}
-          <nav className="flex flex-col gap-0.5" aria-label="Hoofdnavigatie">
-            {desktopNav}
-          </nav>
-        </div>
-
-        <div className="flex flex-col gap-3 border-t border-edge pt-3">
-          {!collapsed && (
-            <div className="px-3">
-              <ThemeToggle />
-            </div>
-          )}
-          <NavLink
-            item={SETTINGS_ITEM}
-            active={pathname === SETTINGS_ITEM.href}
-            collapsed={collapsed}
-          />
+        {/* Account onderaan: avatar + naam + bedrijf, opent instellingen-pop-up */}
+        <div className="border-t border-edge pt-2">
+          <AccountRow collapsed={collapsed} />
         </div>
       </aside>
 
       <CommandPalette />
+      <SettingsModal />
 
-      {/* Mobiel: logo + horizontale navigatie bovenaan */}
+      {/* Mobiel: woordmerk + horizontale navigatie bovenaan */}
       <div className="flex flex-col gap-3 border-b border-edge bg-surface px-3 pt-4 pb-2 print:hidden lg:hidden">
         <div className="flex items-center justify-between gap-3">
-          <Logo />
-          <div className="flex items-center gap-2">
+          <Wordmark />
+          <div className="flex items-center gap-1">
+            <IconButton onClick={openCommandPalette} label="Zoeken">
+              {SEARCH_ICON}
+            </IconButton>
             <NotificationCenter align="right" />
-            <ThemeToggle />
           </div>
         </div>
         <nav className="flex gap-1 overflow-x-auto pb-1" aria-label="Hoofdnavigatie">
@@ -722,7 +907,14 @@ export function Sidebar() {
             </svg>
           </button>
           {mobileNav}
-          {settingsLink}
+          <button
+            type="button"
+            onClick={() => openSettings()}
+            className="flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-ink-secondary transition-colors hover:bg-accent-track/40 hover:text-ink"
+          >
+            <span className="text-ink-muted">{SETTINGS_ITEM.icon}</span>
+            <span className="whitespace-nowrap">{SETTINGS_ITEM.label}</span>
+          </button>
         </nav>
 
         {mobileChatsOpen && (
