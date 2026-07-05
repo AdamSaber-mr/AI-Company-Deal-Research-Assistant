@@ -6,7 +6,7 @@ import { tickIndices } from "./chart-utils";
 import { useSize } from "./useSize";
 
 const H = 260;
-const PAD = { top: 20, right: 10, bottom: 28, left: 32 };
+const PAD = { top: 24, right: 8, bottom: 30, left: 8 };
 
 export function TicketsChart({
   points,
@@ -23,20 +23,21 @@ export function TicketsChart({
   const innerW = w - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
 
-  const max = Math.max(...points.map((p) => p.value)) * 1.15;
+  const max = Math.max(...points.map((p) => p.value)) * 1.12;
   const avg = points.reduce((a, p) => a + p.value, 0) / points.length;
 
   const band = innerW / points.length;
-  const barW = Math.min(24, Math.max(2, band - 2)); // 2px surface-gap tussen staven
+  // Ruime tussenruimte (Revolut-achtig): staaf vult ~62% van de band.
+  const barW = Math.min(26, Math.max(3, band * 0.62));
   const x = (i: number) => PAD.left + i * band + (band - barW) / 2;
   const y = (v: number) => PAD.top + innerH - (v / max) * innerH;
   const baseline = PAD.top + innerH;
 
-  const yTicks = [0, Math.round(max / 2 / 5) * 5, Math.round(max / 5) * 5].filter(
-    (v, i, arr) => arr.indexOf(v) === i
-  );
   const xTicks = tickIndices(points.length, 5);
   const last = points.length - 1;
+
+  // Eén staaf springt eruit: die onder de muis, anders de meest recente dag.
+  const focus = hover !== null ? hover : last;
 
   const hovered = hover !== null ? points[hover] : null;
   const avgDelta = hovered ? Math.round(((hovered.value - avg) / avg) * 100) : null;
@@ -48,6 +49,13 @@ export function TicketsChart({
     const px = e.clientX - rect.left - PAD.left;
     if (px < 0 || px > innerW) return null;
     return Math.max(0, Math.min(points.length - 1, Math.floor(px / band)));
+  };
+
+  // Volledig afgeronde top (pill), begrensd door staafbreedte en -hoogte.
+  const barPath = (i: number, v: number) => {
+    const barH = Math.max(2, baseline - y(v));
+    const r = Math.min(barW / 2, barH);
+    return `M${x(i)},${baseline}v${-(barH - r)}q0,${-r} ${r},${-r}h${barW - 2 * r}q${r},0 ${r},${r}v${barH - r}z`;
   };
 
   return (
@@ -65,60 +73,33 @@ export function TicketsChart({
           }}
           className={onSelect ? "cursor-pointer" : undefined}
         >
-          {yTicks.map((t) => (
-            <g key={t}>
-              <line
-                x1={PAD.left}
-                x2={PAD.left + innerW}
-                y1={y(t)}
-                y2={y(t)}
-                stroke={t === 0 ? "var(--baseline)" : "var(--grid)"}
-                strokeWidth="1"
-              />
-              <text
-                x={PAD.left - 6}
-                y={y(t) + 3.5}
-                fontSize="11"
-                fill="var(--ink-muted)"
-                textAnchor="end"
-                style={{ fontVariantNumeric: "tabular-nums" }}
-              >
-                {t}
-              </text>
-            </g>
-          ))}
+          {/* referentielijn: 12-weeks gemiddelde — heel subtiel, geen grid */}
+          <line
+            x1={PAD.left}
+            x2={PAD.left + innerW}
+            y1={y(avg)}
+            y2={y(avg)}
+            stroke="var(--baseline)"
+            strokeWidth="1"
+            strokeDasharray="2 5"
+            strokeLinecap="round"
+          />
 
-          {/* zachte band achter de kolom waar de muis staat */}
-          {hover !== null && (
-            <rect
-              x={PAD.left + hover * band}
-              y={PAD.top}
-              width={band}
-              height={innerH}
-              rx="6"
-              fill="var(--accent)"
-              opacity="0.08"
-            />
-          )}
-
-          {/* staven: 4px afgeronde datakant, groeien vanaf de basislijn */}
+          {/* staven: rustige tint, alleen de focus-staaf in vol accent */}
           <g
             key={`bars-${points.length}`}
             className="anim-grow"
             style={{ transformOrigin: `0px ${baseline}px` }}
           >
-            {points.map((p, i) => {
-              const barH = Math.max(1, baseline - y(p.value));
-              const r = Math.min(4, barW / 2, barH);
-              return (
-                <path
-                  key={p.date.getTime()}
-                  d={`M${x(i)},${baseline}v${-(barH - r)}q0,${-r} ${r},${-r}h${barW - 2 * r}q${r},0 ${r},${r}v${barH - r}z`}
-                  fill="var(--accent)"
-                  opacity={hover === null || hover === i ? 1 : 0.55}
-                />
-              );
-            })}
+            {points.map((p, i) => (
+              <path
+                key={p.date.getTime()}
+                d={barPath(i, p.value)}
+                fill={i === focus ? "var(--accent)" : "var(--accent-soft)"}
+                opacity={hover === null || i === focus ? 1 : 0.5}
+                style={{ transition: "opacity 0.18s ease, fill 0.18s ease" }}
+              />
+            ))}
           </g>
 
           {/* hit-targets los van de geanimeerde staven, zodat hover meteen klopt */}
@@ -133,31 +114,6 @@ export function TicketsChart({
               onPointerMove={() => setHover(i)}
             />
           ))}
-
-          {/* referentielijn: 12-weeks gemiddelde (gestippeld = drempel, geen grid) */}
-          <g className="anim-fade" style={{ animationDelay: "0.55s" }}>
-            <line
-              x1={PAD.left}
-              x2={PAD.left + innerW}
-              y1={y(avg)}
-              y2={y(avg)}
-              stroke="var(--ink-muted)"
-              strokeWidth="1"
-              strokeDasharray="3 4"
-            />
-            <text
-              x={PAD.left + innerW - 4}
-              y={y(avg) - 5}
-              fontSize="10.5"
-              fill="var(--ink-muted)"
-              textAnchor="end"
-              stroke="var(--surface)"
-              strokeWidth="3"
-              style={{ paintOrder: "stroke" }}
-            >
-              gemiddelde
-            </text>
-          </g>
 
           {/* x-as: gelijkmatig verdeelde datumlabels */}
           {xTicks.map((i) => (
@@ -177,9 +133,9 @@ export function TicketsChart({
 
       {hovered && hover !== null && (
         <div
-          className="pointer-events-none absolute z-10 min-w-[136px] rounded-xl border border-edge bg-raised/95 px-3 py-2.5 shadow-lg backdrop-blur"
+          className="anim-pop pointer-events-none absolute z-10 min-w-[132px] rounded-xl border border-edge bg-raised/95 px-3 py-2.5 shadow-lg backdrop-blur"
           style={{
-            left: Math.min(Math.max(x(hover) - 48, 0), w - 156),
+            left: Math.min(Math.max(x(hover) + barW / 2 - 66, 0), w - 152),
             top: Math.max(y(hovered.value) - 84, 4),
           }}
         >

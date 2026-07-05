@@ -51,7 +51,6 @@ export function RevenueChart({
   const line = monotonePath(xs, points.map((p) => y(p.value)));
   const area = `${line}L${x(points.length - 1)},${baseline}L${x(0)},${baseline}Z`;
 
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(max * f));
   const xTicks = tickIndices(points.length, 5);
   const last = points.length - 1;
 
@@ -87,34 +86,11 @@ export function RevenueChart({
           <defs>
             {/* zachte verticale wash onder de lijn */}
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.24" />
-              <stop offset="55%" stopColor="var(--accent)" stopOpacity="0.07" />
+              <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.20" />
+              <stop offset="60%" stopColor="var(--accent)" stopOpacity="0.05" />
               <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
             </linearGradient>
           </defs>
-
-          {/* gridlijnen + y-as ticks */}
-          {yTicks.map((t) => (
-            <g key={t}>
-              <line
-                x1={PAD.left}
-                x2={PAD.left + innerW}
-                y1={y(t)}
-                y2={y(t)}
-                stroke={t === 0 ? "var(--baseline)" : "var(--grid)"}
-                strokeWidth="1"
-              />
-              <text
-                x={w - PAD.right + 10}
-                y={y(t) + 3.5}
-                fontSize="11"
-                fill="var(--ink-muted)"
-                style={{ fontVariantNumeric: "tabular-nums" }}
-              >
-                {t >= 1000 ? `${(t / 1000).toLocaleString("nl-NL")}K` : t}
-              </text>
-            </g>
-          ))}
 
           {/* x-as: gelijkmatig verdeelde datumlabels */}
           {xTicks.map((i) => (
@@ -153,7 +129,7 @@ export function RevenueChart({
               className="anim-draw"
               fill="none"
               stroke="var(--accent)"
-              strokeWidth="2"
+              strokeWidth="2.25"
               strokeLinejoin="round"
               strokeLinecap="round"
             />
