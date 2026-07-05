@@ -1,5 +1,6 @@
 import type { RangeKey } from "./data";
 import { scopedKey } from "./scope";
+import { markLocalChange } from "./sync";
 
 // Instellingen leven client-side in localStorage (demo). Elke sleutel heeft
 // een default zodat de app ook zonder opgeslagen keuzes werkt.
@@ -63,4 +64,5 @@ export function hasStoredSettings(): boolean {
 
 export function saveSettings(settings: Settings) {
   localStorage.setItem(scopedKey(KEY), JSON.stringify(settings));
+  markLocalChange();
 }

@@ -10,6 +10,7 @@ import {
   getCurrentUser,
   sessionCookieOptions,
 } from "@/lib/server/session";
+import { deleteUserStore } from "@/lib/server/store";
 
 /** Naam en/of bedrijfsnaam van het ingelogde account bijwerken. */
 export async function PATCH(request: NextRequest) {
@@ -44,6 +45,7 @@ export async function DELETE() {
   if (!me) return Response.json({ error: "Niet ingelogd." }, { status: 401 });
 
   deleteUser(me.id);
+  deleteUserStore(me.id);
   const store = await cookies();
   store.set(SESSION_COOKIE, "", sessionCookieOptions(0));
   return Response.json({ ok: true });

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { migrateLegacyData, notifyScope, setActiveUserId } from "@/lib/scope";
 import { DEFAULT_SETTINGS, hasStoredSettings, saveSettings } from "@/lib/settings";
+import { markLocalChange, syncFromServer } from "@/lib/sync";
 
 /**
  * Zet de per-account naamruimte voor localStorage (chats + instellingen) op
@@ -22,14 +23,23 @@ export function AccountScope({
   useEffect(() => {
     setActiveUserId(user.id);
     // Data van vóór de account-scheiding eenmalig aan dit account koppelen.
-    if (migrateLegacyData(user.id)) notifyScope();
-    if (!hasStoredSettings()) {
-      saveSettings({
-        ...DEFAULT_SETTINGS,
-        ownerName: user.name,
-        companyName: user.company,
-      });
+    if (migrateLegacyData(user.id)) {
+      notifyScope();
+      markLocalChange();
     }
+    // Eerst de server-kopie binnenhalen (nieuwste versie wint), pas daarna
+    // eventueel seeden — anders zou een vers apparaat de bestaande data van
+    // een ander apparaat overschrijven met defaults.
+    (async () => {
+      await syncFromServer();
+      if (!hasStoredSettings()) {
+        saveSettings({
+          ...DEFAULT_SETTINGS,
+          ownerName: user.name,
+          companyName: user.company,
+        });
+      }
+    })();
   }, [user.id, user.name, user.company]);
 
   return <>{children}</>;

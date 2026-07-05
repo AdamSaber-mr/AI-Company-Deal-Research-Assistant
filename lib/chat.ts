@@ -22,6 +22,7 @@ export type Conversation = {
 };
 
 import { scopedKey, subscribeScope } from "./scope";
+import { markLocalChange } from "./sync";
 
 const KEY = "bcc-chats";
 const EMPTY: Conversation[] = [];
@@ -62,6 +63,7 @@ export function subscribeChats(listener: () => void) {
 
 function persist(next: Conversation[]) {
   localStorage.setItem(scopedKey(KEY), JSON.stringify(next));
+  markLocalChange();
   listeners.forEach((l) => l());
 }
 
